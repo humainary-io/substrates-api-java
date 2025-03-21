@@ -26,7 +26,7 @@
     <maven-failsafe-plugin.version>3.5.2</maven-failsafe-plugin.version>
     <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
 
-    <maven-project-info-reports-plugin.version>3.8.0</maven-project-info-reports-plugin.version>
+    <maven-project-info-reports-plugin.version>3.9.0</maven-project-info-reports-plugin.version>
     <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
     <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
     <maven-site-plugin.version>4.0.0-M16</maven-site-plugin.version>
@@ -37,17 +37,17 @@
 
     <versions-maven-plugin.version>2.18.0</versions-maven-plugin.version>
 
-    <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
+    <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version>
 
-    <junit.version>5.12.0-RC2</junit.version>
+    <junit.version>5.12.1</junit.version>
     <junit-jupiter.version>${junit.version}</junit-jupiter.version>
 
     <jmh.version>1.37</jmh.version>
 
-    <spotbugs-maven-plugin.version>4.9.1.0</spotbugs-maven-plugin.version>
-    <spotbugs.version>4.9.1</spotbugs.version>
+    <spotbugs-maven-plugin.version>4.9.3.0</spotbugs-maven-plugin.version>
+    <spotbugs.version>4.9.3</spotbugs.version>
 
-    <native-maven-plugin.version>0.10.5</native-maven-plugin.version>
+    <native-maven-plugin.version>0.10.6</native-maven-plugin.version>
 
     <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
   </properties>
