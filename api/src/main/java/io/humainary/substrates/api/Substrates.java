@@ -1,6 +1,4 @@
-/*
- * Copyright © 2025 William David Louth
- */
+/// Copyright © 2025 William David Louth
 package io.humainary.substrates.api;
 
 import java.lang.annotation.Documented;
@@ -19,7 +17,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.Optional.empty;
 import static java.util.Spliterator.*;
 
-/// Substrates API provides a flexible framework for building event-driven and hierarchical systems
+/// Substrates API provides a flexible framework for building event-driven and observability systems
 /// by combining concepts of circuits, conduits, channels, pipes, subscribers, subscriptions, and subjects.
 ///
 /// ## Key Features
@@ -49,6 +47,8 @@ import static java.util.Spliterator.*;
 ///     - Event-driven architectures with dynamic subscriptions
 ///
 ///     - Observability frameworks and instrumentation
+///
+///     - Digital Twin mirrored state and computational processing units
 ///
 ///
 /// @author autoletics
@@ -2363,11 +2363,14 @@ public interface Substrates {
 
   }
 
+
   @Abstract
   @Extension
   interface Substrate {
 
     /// Returns the subject identifying this substrate
+    ///
+    /// @return The subject associated with this substrate.
 
     @NotNull
     Subject subject ();
