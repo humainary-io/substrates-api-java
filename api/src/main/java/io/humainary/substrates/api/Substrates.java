@@ -197,8 +197,8 @@ public interface Substrates {
     /// @throws NullPointerException if the specified composer is `null`
 
     @NotNull
-    < P, E > Container < P, E > container (
-      @NotNull Composer < ? extends P, E > composer
+    < P, E > Container < Pool < P >, Source < E > > container (
+      @NotNull Composer < P, E > composer
     );
 
 
@@ -209,9 +209,9 @@ public interface Substrates {
     /// @throws NullPointerException if the specified name or composer is `null`
 
     @NotNull
-    < P, E > Container < P, E > container (
+    < P, E > Container < Pool < P >, Source < E > > container (
       @NotNull Name name,
-      @NotNull Composer < ? extends P, E > composer
+      @NotNull Composer < P, E > composer
     );
 
 
@@ -223,9 +223,9 @@ public interface Substrates {
     /// @throws NullPointerException if the specified name, composer, or sequencer is `null`
 
     @NotNull
-    < P, E > Container < P, E > container (
+    < P, E > Container < Pool < P >, Source < E > > container (
       @NotNull Name name,
-      @NotNull Composer < ? extends P, E > composer,
+      @NotNull Composer < P, E > composer,
       @NotNull Sequencer < Path < E > > sequencer
     );
 
@@ -319,7 +319,6 @@ public interface Substrates {
             Resource
     permits Circuit,
             Clock,
-            Conduit,
             Container {
 
   }
@@ -460,23 +459,21 @@ public interface Substrates {
   /// @param <E> the class type of emitted value
 
   @Provided
-  non-sealed interface Conduit < P, E >
-    extends Component < E >,
-            Tap < Conduit < P, E > >,
-            Pool < P > {
+  interface Conduit < P, E >
+    extends Container < P, E >,
+            Tap < Conduit < P, E > > {
 
   }
 
-  /// Creates and manages conduits by name, including the
-  /// lifecycle of the underlying resources tied to the conduits.
+  /// Creates and manages an instance pool and notifies of events associated with such instances
   ///
-  /// @param <P> the class type of the percept
-  /// @param <E> the class type of emitted value
+  /// @param <P> the class type of the pooled object
+  /// @param <E> the class type of component (source) emittance
 
   @Provided
   non-sealed interface Container < P, E >
-    extends Pool < Pool < P > >,
-            Component < Source < E > > {
+    extends Pool < P >,
+            Component < E > {
 
   }
 
@@ -1312,6 +1309,14 @@ public interface Substrates {
 
   }
 
+  /// Indicates a method that returns this for method chaining.
+
+  @Documented
+  @Retention ( SOURCE )
+  @Target ( METHOD )
+  @interface Fluent {
+  }
+
   /// An activity that returns a result.
   ///
   /// @param <R> The output of the function
@@ -1370,6 +1375,7 @@ public interface Substrates {
   @interface Identity {
   }
 
+
   /// An interface that provides access to a pipe for emitting values
 
   @Abstract
@@ -1384,7 +1390,6 @@ public interface Substrates {
     Pipe < E > pipe ();
 
   }
-
 
   /// Represents one or more name (string) parts, much like a namespace.
 
@@ -1552,10 +1557,13 @@ public interface Substrates {
     /// @param op  the operation to be cast
     /// @param <T> the throwable class type thrown by the operation
     /// @return A casting of the specified operation
+    /// @throws NullPointerException if `op` param is `null`
 
     static < T extends Throwable > Op < T > of (
       @NotNull final Op < T > op
     ) {
+
+      requireNonNull ( op );
 
       return op;
 
@@ -1568,11 +1576,14 @@ public interface Substrates {
     /// @param <R> the return type of the [#eval()]
     /// @param <T> the throwable class type thrown by the operation
     /// @return An operation that wraps the function
+    /// @throws NullPointerException if `fn` param is `null`
 
     @NotNull
     static < R, T extends Throwable > Op < T > of (
       @NotNull final Fn < R, ? extends T > fn
     ) {
+
+      requireNonNull ( fn );
 
       return fn::eval;
 
@@ -1747,6 +1758,7 @@ public interface Substrates {
     /// @param substrate The substrate used to determine the name lookup
     /// @return A newly created instance or a previously pooled instance
     /// @throws NullPointerException if the substrate is null
+
     @NotNull
     default T get (
       @NotNull final Substrate substrate
@@ -1764,6 +1776,7 @@ public interface Substrates {
     /// @param subject the subject used to determine the name lookup
     /// @return A newly created instance or a previously pooled instance
     /// @throws NullPointerException if the subject is null
+
     @NotNull
     default T get (
       @NotNull final Subject subject
@@ -1781,6 +1794,7 @@ public interface Substrates {
     /// @param name The name of the instance
     /// @return A newly created instance or a previously pooled instance
     /// @throws NullPointerException if key is null
+
     @NotNull
     T get (
       @NotNull Name name
@@ -1848,7 +1862,9 @@ public interface Substrates {
   @Abstract
   sealed interface Resource
     extends Substrate
-    permits Component, Sink, Subscription {
+    permits Component,
+            Sink,
+            Subscription {
 
     /// A method that is called to indicate that no more usage will be made
     /// of the instance and that underlying resources held can be released.
@@ -2355,6 +2371,7 @@ public interface Substrates {
 
   }
 
+
   /// An interface used for unregistering interest in receiving subscribed events.
 
   @Provided
@@ -2377,10 +2394,10 @@ public interface Substrates {
 
   }
 
-
   @SuppressWarnings ( "unchecked" )
   interface Tap < T extends Tap < T > > {
 
+    @Fluent
     default T tap (
       final Consumer < ? super T > consumer
     ) {
@@ -2412,3 +2429,4 @@ public interface Substrates {
   }
 
 }
+
