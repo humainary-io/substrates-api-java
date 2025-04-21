@@ -117,6 +117,12 @@ public interface Substrates {
   }
 
   /// A computational network of conduits, containers, clocks, channels, and pipes.
+  /// Circuit serves as the central processing engine that manages data flow across
+  /// the system, providing precise ordering guarantees for emitted events and
+  /// coordinating the interaction between various components.
+  ///
+  /// Circuits can create and manage clocks, conduits, and containers, allowing for
+  /// complex event processing pipelines to be constructed and maintained.
 
   @Provided
   non-sealed interface Circuit
@@ -964,6 +970,21 @@ public interface Substrates {
     }
 
 
+    /// Applies the given consumer to the enclosing extent if it exists.
+    ///
+    /// @param consumer the consumer to be applied to the enclosing extent
+    /// @throws NullPointerException if the consumer is `null`
+
+    default void enclosure (
+      @NotNull final Consumer < T > consumer
+    ) {
+
+      enclosure ()
+        .ifPresent ( consumer );
+
+    }
+
+
     /// Returns the extent instance referenced by `this`.
     ///
     /// @return A reference to this extent instance
@@ -1355,6 +1376,11 @@ public interface Substrates {
 
   }
 
+  /// A unique identifier interface used to distinguish between instances.
+  ///
+  /// This interface serves as a marker for unique identifiers within the system,
+  /// particularly for subjects and other entities that require distinct identification.
+
   @Provided
   @Identity
   interface Id {
@@ -1619,6 +1645,12 @@ public interface Substrates {
     );
 
 
+    /// Returns a new path that forwards emissions to the specified pipe.
+    ///
+    /// @param pipe the pipe to forward emissions to
+    /// @return A new path with the forwarding operation added
+    /// @throws NullPointerException if the pipe is `null`
+
     @NotNull
     Path < E > forward (
       @NotNull Pipe < E > pipe
@@ -1657,6 +1689,12 @@ public interface Substrates {
       long limit
     );
 
+
+    /// Returns a new path that allows inspection of emissions without modifying them.
+    ///
+    /// @param consumer the consumer that will be called for each emission passing through
+    /// @return A new path with the peek operation added
+    /// @throws NullPointerException if the consumer is `null`
 
     @NotNull
     Path < E > peek (
@@ -1726,6 +1764,11 @@ public interface Substrates {
   @Abstract
   @Extension
   interface Pipe < E > {
+
+    /// Returns an empty pipe that ignores all emissions.
+    ///
+    /// @param <E> the class type of the emitted values
+    /// @return A pipe that does nothing when emissions are received
 
     @NotNull
     static < E > Pipe < E > empty () {
@@ -1890,11 +1933,25 @@ public interface Substrates {
     void close ();
 
 
+    /// Creates a closure for the specified resource within this scope.
+    ///
+    /// @param <R> the type of resource
+    /// @param resource the resource to be managed within the closure
+    /// @return A closure that manages the specified resource
+    /// @throws NullPointerException if the resource is `null`
+
     @NotNull
     < R extends Resource > Closure < R > closure (
       @NotNull R resource
     );
 
+
+    /// Registers a resource with this scope for lifecycle management.
+    ///
+    /// @param <R> the type of resource
+    /// @param resource the resource to be registered with this scope
+    /// @return The registered resource (same as input)
+    /// @throws NullPointerException if the resource is `null`
 
     @NotNull
     < R extends Resource > R register (
@@ -1902,21 +1959,45 @@ public interface Substrates {
     );
 
 
-    @NotNull
-    Scope scope ( Name name );
+    /// Creates a new named child scope within this scope.
+    ///
+    /// @param name the name for the new child scope
+    /// @return A new scope that is a child of this scope
+    /// @throws NullPointerException if the name is `null`
 
+    @NotNull
+    Scope scope ( @NotNull Name name );
+
+
+    /// Creates a new anonymous child scope within this scope.
+    ///
+    /// @return A new scope that is a child of this scope
 
     @NotNull
     Scope scope ();
 
+
+    /// Returns the subject associated with this scope.
+    ///
+    /// @return The subject that identifies this scope
 
     @NotNull
     Subject subject ();
 
   }
 
+  /// An executable unit of work that can be scheduled for execution in a circuit's queue.
+  ///
+  /// Scripts provide a way to execute code within the context of a circuit's
+  /// processing pipeline, ensuring proper coordination with other operations.
+
   @Extension
   interface Script {
+
+    /// Executes this script within the context of the provided current.
+    ///
+    /// @param current the execution context for this script
+    /// @throws NullPointerException if the current is `null`
 
     void exec (
       @NotNull Current current
@@ -1924,8 +2005,20 @@ public interface Substrates {
 
   }
 
+  /// Responsible for configuring and sequencing assembly components in a pipeline.
+  ///
+  /// Sequencers define how data flows through a pipeline by applying configurations
+  /// to assembly components like paths and sifts.
+  ///
+  /// @param <A> the type of assembly this sequencer configures
+
   @Extension
   interface Sequencer < A extends Assembly > {
+
+    /// Applies configuration to the provided assembly.
+    ///
+    /// @param assembly the assembly to be configured
+    /// @throws NullPointerException if the assembly is `null`
 
     void apply (
       @NotNull A assembly
@@ -1933,10 +2026,23 @@ public interface Substrates {
 
   }
 
+  /// A filtering mechanism for values in a pipeline based on comparison criteria.
+  ///
+  /// Sift provides various methods to filter values based on thresholds, ranges,
+  /// and relative positions in a sorted sequence.
+  ///
+  /// @param <E> the type of elements being filtered
+
   @Temporal
   @Provided
   interface Sift < E >
     extends Assembly {
+
+    /// Creates a sift that only passes values above the specified lower bound.
+    ///
+    /// @param lower the lower bound (exclusive)
+    /// @return A new sift with the above filter applied
+    /// @throws NullPointerException if the lower bound is `null`
 
     @NotNull
     Sift < E > above (
@@ -1944,19 +2050,39 @@ public interface Substrates {
     );
 
 
+    /// Creates a sift that only passes values below the specified upper bound.
+    ///
+    /// @param upper the upper bound (exclusive)
+    /// @return A new sift with the below filter applied
+    /// @throws NullPointerException if the upper bound is `null`
+
     @NotNull
     Sift < E > below (
       @NotNull E upper
     );
 
 
+    /// Creates a sift that only passes values in the higher end of the range.
+    ///
+    /// @return A new sift that filters for high values
+
     @NotNull
     Sift < E > high ();
 
 
+    /// Creates a sift that only passes values in the lower end of the range.
+    ///
+    /// @return A new sift that filters for low values
+
     @NotNull
     Sift < E > low ();
 
+
+    /// Creates a sift that only passes values up to the specified maximum.
+    ///
+    /// @param max the maximum value (inclusive)
+    /// @return A new sift with the maximum filter applied
+    /// @throws NullPointerException if the max value is `null`
 
     @NotNull
     Sift < E > max (
@@ -1964,11 +2090,24 @@ public interface Substrates {
     );
 
 
+    /// Creates a sift that only passes values from the specified minimum.
+    ///
+    /// @param min the minimum value (inclusive)
+    /// @return A new sift with the minimum filter applied
+    /// @throws NullPointerException if the min value is `null`
+
     @NotNull
     Sift < E > min (
       @NotNull E min
     );
 
+
+    /// Creates a sift that only passes values within the specified range.
+    ///
+    /// @param lower the lower bound (inclusive)
+    /// @param upper the upper bound (inclusive)
+    /// @return A new sift with the range filter applied
+    /// @throws NullPointerException if either bound is `null`
 
     @NotNull
     Sift < E > range (
@@ -2004,13 +2143,25 @@ public interface Substrates {
   @Provided
   interface Slot < T > {
 
+    /// Returns the name of this slot.
+    ///
+    /// @return The name that identifies this slot
+
     @NotNull
     Name name ();
 
 
+    /// Returns the class type of this slot's value.
+    ///
+    /// @return The class type of the value stored in this slot
+
     @NotNull
     Class < T > type ();
 
+
+    /// Returns the value stored in this slot.
+    ///
+    /// @return The value stored in this slot
 
     @NotNull
     T value ();
