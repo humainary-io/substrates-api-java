@@ -952,7 +952,7 @@ public interface Substrates {
 
       return fold (
         _ -> 1,
-        ( depth, ignore ) -> depth + 1
+        ( depth, _ ) -> depth + 1
       );
 
     }
@@ -990,9 +990,9 @@ public interface Substrates {
     /// @return A reference to this extent instance
 
     @NotNull
+    @SuppressWarnings ( "unchecked" )
     default T extent () {
 
-      //noinspection unchecked
       return (T) this;
 
     }
@@ -1670,7 +1670,8 @@ public interface Substrates {
 
     /// Returns a new path that extends the current pipeline with a guard operation.
     ///
-    /// @param predicate the initial value used for guarding
+    /// @param initial   the initial value to compare against
+    /// @param predicate the predicate used for guarding
     /// @throws NullPointerException if the predicate is `null`
 
     @NotNull
@@ -1747,6 +1748,7 @@ public interface Substrates {
     /// Returns a new path that extends the current pipeline with a sampling operation
     ///
     /// @param comparator the comparator used by a sift subassembly line
+    /// @param sequencer  the sequencer that configures the sift assembly
     /// @throws NullPointerException if the comparator or sequencer are `null`
 
     @NotNull
@@ -1935,7 +1937,7 @@ public interface Substrates {
 
     /// Creates a closure for the specified resource within this scope.
     ///
-    /// @param <R> the type of resource
+    /// @param <R>      the type of resource
     /// @param resource the resource to be managed within the closure
     /// @return A closure that manages the specified resource
     /// @throws NullPointerException if the resource is `null`
@@ -1948,7 +1950,7 @@ public interface Substrates {
 
     /// Registers a resource with this scope for lifecycle management.
     ///
-    /// @param <R> the type of resource
+    /// @param <R>      the type of resource
     /// @param resource the resource to be registered with this scope
     /// @return The registered resource (same as input)
     /// @throws NullPointerException if the resource is `null`
@@ -2223,6 +2225,7 @@ public interface Substrates {
 
     /// Subscribes a [Subscriber] to receive subject registrations from this source
     ///
+    /// @param name       the name used as the subject for the subscription
     /// @param subscriber the subscriber to be subscribed
     /// @return The subscription used to control future delivery
     /// @throws NullPointerException if name or subscriber are `null`
@@ -2248,6 +2251,7 @@ public interface Substrates {
 
     /// Subscribes a [Pipe] to a specific subject registered with this source
     ///
+    /// @param name the name used as the subject for the subscription
     /// @param func the function that produces a pipe to be registered
     /// @return The subscription used to control future delivery
     /// @throws NullPointerException if name or func are `null`
@@ -2273,6 +2277,7 @@ public interface Substrates {
 
     /// Subscribes a [Conduit] to a specific subject registered with this source
     ///
+    /// @param name    the name used as the subject for the subscription
     /// @param conduit the conduit producing a pipe to be registered
     /// @return The subscription used to control future delivery
     /// @throws NullPointerException if name or func are `null`
@@ -2580,4 +2585,3 @@ public interface Substrates {
   }
 
 }
-

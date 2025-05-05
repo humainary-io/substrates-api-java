@@ -12,7 +12,7 @@
 
   <properties>
 
-    <revision>1.0.0-M9</revision>
+    <revision>1.0.0-M10</revision>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
@@ -22,8 +22,8 @@
     <java.release.version>${java.version}</java.release.version>
 
     <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
-    <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
-    <maven-failsafe-plugin.version>3.5.2</maven-failsafe-plugin.version>
+    <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
+    <maven-failsafe-plugin.version>3.5.3</maven-failsafe-plugin.version>
     <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
 
     <maven-project-info-reports-plugin.version>3.9.0</maven-project-info-reports-plugin.version>
@@ -39,7 +39,7 @@
 
     <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version>
 
-    <junit.version>5.12.1</junit.version>
+    <junit.version>5.13.0-M3</junit.version>
     <junit-jupiter.version>${junit.version}</junit-jupiter.version>
 
     <jmh.version>1.37</jmh.version>
