@@ -17,7 +17,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.Optional.empty;
 import static java.util.Spliterator.*;
 
-/// Substrates API provides a flexible framework for building event-driven and observability systems
+/// The Substrates API provides a flexible framework for building event-driven and observability systems
 /// by combining concepts of circuits, conduits, channels, pipes, subscribers, subscriptions, and subjects.
 ///
 /// ## Key Features
@@ -31,7 +31,7 @@ import static java.util.Spliterator.*;
 ///
 ///     - **Pipe**: An interface that serves as an abstraction for passing typed values along a pipeline.
 ///
-///     - **Subscriber**: An interface that dynamically subscribing to a source and registering pipes with the subjects of channels.
+///     - **Subscriber**: Dynamically subscribes to a source and registers pipes with the subjects of channels.
 ///
 ///     - **Subscription**: An interface for managing and unregistering subscriptions.
 ///
@@ -50,7 +50,6 @@ import static java.util.Spliterator.*;
 ///
 ///     - Digital Twin mirrored state and computational processing units
 ///
-///
 /// @author autoletics
 /// @since 1.0
 
@@ -63,7 +62,7 @@ public interface Substrates {
   @interface Abstract {
   }
 
-  /// Indicates a type that serves a role in the assembly of a pipeline
+  /// Indicates a type that serves a role in the assembly of a pipeline.
   @Abstract
   interface Assembly {
   }
@@ -72,6 +71,8 @@ public interface Substrates {
   /// A capture of an emitted value with its associated subject
   ///
   /// @param <E> the class type of emitted value
+  /// @see Cortex#capture(Subject, Object)
+  /// @see Sink#drain()
 
   @Provided
   interface Capture < E > {
@@ -87,6 +88,7 @@ public interface Substrates {
     /// Returns the subject that emitted the value.
     ///
     /// @return The subject that emitted the value
+    /// @see Subject
 
     @NotNull
     Subject subject ();
@@ -96,6 +98,9 @@ public interface Substrates {
   /// A (subject) named pipe managed by a conduit.
   ///
   /// @param <E> the class type of emitted value
+  /// @see Conduit
+  /// @see Inlet
+  /// @see Circuit#conduit(Composer)
 
   @Provided
   non-sealed interface Channel < E >
@@ -108,6 +113,9 @@ public interface Substrates {
     /// @param sequencer The sequencer responsible for creating paths in the conduit.
     /// @return A pipe instance that will use this channel to emit values
     /// @throws NullPointerException if the specified sequencer is `null`
+    /// @see Pipe
+    /// @see Sequencer
+    /// @see Path
 
     @NotNull
     Pipe < E > pipe (
@@ -123,6 +131,12 @@ public interface Substrates {
   ///
   /// Circuits can create and manage clocks, conduits, and containers, allowing for
   /// complex event processing pipelines to be constructed and maintained.
+  ///
+  /// @see Cortex#circuit()
+  /// @see Clock
+  /// @see Conduit
+  /// @see Container
+  /// @see Queue
 
   @Provided
   non-sealed interface Circuit
@@ -132,6 +146,8 @@ public interface Substrates {
     /// Returns a clock that will use this circuit to emit clock cycle events.
     ///
     /// @return A clock instance that will use this circuit to emit clock cycle events.
+    /// @see Clock
+    /// @see Clock.Cycle
 
     @NotNull
     Clock clock ();
@@ -156,6 +172,9 @@ public interface Substrates {
     /// @param <P>      The class type of the percept.
     /// @return A conduit that will use this circuit to process and deliver values emitted.
     /// @throws NullPointerException if the specified composer is `null`
+    /// @see Conduit
+    /// @see Composer
+    /// @see Channel
 
     @NotNull
     < P, E > Conduit < P, E > conduit (
@@ -201,6 +220,9 @@ public interface Substrates {
     ///
     /// @param composer The composer that forms percepts around a channel.
     /// @throws NullPointerException if the specified composer is `null`
+    /// @see Container
+    /// @see Pool
+    /// @see Source
 
     @NotNull
     < P, E > Container < Pool < P >, Source < E > > container (
@@ -238,6 +260,8 @@ public interface Substrates {
 
     /// Returns a [Queue] that can be used to coordinate execution with the
     /// underlying pipeline processing as well as to execute scripts
+    /// @see Queue
+    /// @see Script
 
     @NotNull
     Queue queue ();
@@ -245,6 +269,9 @@ public interface Substrates {
   }
 
   /// A component that emits clock ticks.
+  /// @see Circuit#clock()
+  /// @see Instant
+  /// @see Clock.Cycle
   @Provided
   non-sealed interface Clock
     extends Component < Instant > {
@@ -255,9 +282,13 @@ public interface Substrates {
     /// @param pipe  the pipe that will consume ticks events
     /// @return A subscription that can be used to cancel further delivery of tick events
     /// @throws NullPointerException if the specified cycle or pipe are `null`
+    /// @see Clock.Cycle
+    /// @see Pipe
+    /// @see Subscription
 
     @NotNull
     Subscription consume (
+      @NotNull Name name,
       @NotNull Cycle cycle,
       @NotNull Pipe < Instant > pipe
     );
@@ -282,6 +313,10 @@ public interface Substrates {
 
       private final long units;
 
+      /// Constructor for the Cycle enum.
+      ///
+      /// @param units the number of time units this cycle represents
+
       Cycle (
         final long units
       ) {
@@ -290,6 +325,10 @@ public interface Substrates {
           = units;
 
       }
+
+      /// Returns the number of time units this cycle represents.
+      ///
+      /// @return the number of time units
 
       public long units () {
         return units;
@@ -321,7 +360,8 @@ public interface Substrates {
 
   @Abstract
   sealed interface Component < E >
-    extends Context < E >,
+    extends Substrate,
+            Context < E >,
             Resource
     permits Circuit,
             Clock,
@@ -333,6 +373,9 @@ public interface Substrates {
   ///
   /// @param <E> the class type of emitted value
   /// @param <P> The class type of the percept
+  /// @see Channel
+  /// @see Pipe
+  /// @see Circuit#conduit(Composer)
 
   @Abstract
   @Extension
@@ -463,6 +506,10 @@ public interface Substrates {
   ///
   /// @param <P> the class type of the percept
   /// @param <E> the class type of emitted value
+  /// @see Channel
+  /// @see Pipe
+  /// @see Container
+  /// @see Circuit#conduit(Composer)
 
   @Provided
   interface Conduit < P, E >
@@ -475,6 +522,9 @@ public interface Substrates {
   ///
   /// @param <P> the class type of the pooled object
   /// @param <E> the class type of component (source) emittance
+  /// @see Pool
+  /// @see Component
+  /// @see Circuit#container(Composer)
 
   @Provided
   non-sealed interface Container < P, E >
@@ -486,6 +536,8 @@ public interface Substrates {
   /// A type that serves to provide access to a source.
   ///
   /// @param <E> the class type of emitted value
+  /// @see Source
+  /// @see Component
 
   @Abstract
   sealed interface Context < E >
@@ -494,6 +546,7 @@ public interface Substrates {
     /// Returns the source provided by this context.
     ///
     /// @return A non-null reference to the (emitting) source of this context.
+    /// @see Source
 
     @NotNull
     Source < E > source ();
@@ -501,9 +554,30 @@ public interface Substrates {
   }
 
   /// The main entry point into the underlying substrates runtime.
+  /// @see Circuit
+  /// @see Name
+  /// @see Scope
+  /// @see Sink
+  /// @see State
+  /// @see Subscriber
 
   @Provided
   interface Cortex {
+
+
+    /// Creates a capture of an emitted value with its associated subject.
+    ///
+    /// @param subject  the subject that emitted the value
+    /// @param emission the emitted value
+    /// @param <E>      the class type of emitted value
+    /// @return a new capture instance containing the subject and emission
+    /// @throws NullPointerException if the subject or emission params are `null`
+
+    @NotNull
+    < E > Capture < E > capture (
+      @NotNull final Subject subject,
+      @NotNull final E emission
+    );
 
 
     /// Returns a newly created circuit instance
@@ -630,6 +704,19 @@ public interface Substrates {
     );
 
 
+    /// Creates a pool that always returns the same singleton instance.
+    ///
+    /// @param singleton the singleton instance to be returned by the pool
+    /// @param <T>       the class type of the singleton
+    /// @return a pool that always returns the same singleton instance
+    /// @throws NullPointerException if the singleton param is `null`
+
+    @NotNull
+    < T > Pool < T > pool (
+      @NotNull final T singleton
+    );
+
+
     /// Returns a new scope instance that manages a provided resource.
     ///
     /// @return A scope that calls close on the underlying resource when it is closed
@@ -647,6 +734,37 @@ public interface Substrates {
 
     @NotNull
     Scope scope ();
+
+
+    /// Creates a Sink instance for the given context's source.
+    ///
+    /// @param context the context providing the source
+    /// @return a new Sink instance associated with the provided context's source
+    /// @throws NullPointerException if context is null
+
+    @NotNull
+    default < E > Sink < E > sink (
+      @NotNull final Context < E > context
+    ) {
+
+      return sink (
+        context.source ()
+      );
+
+    }
+
+
+    /// Creates a Sink object from the given Source object.
+    ///
+    /// @param source the source from which the sink will capture emissions
+    /// @param <E>    the class type of emitted value
+    /// @return a new Sink object of the same type as the given source
+    /// @throws NullPointerException if the source param is null
+
+    @NotNull
+    < E > Sink < E > sink (
+      @NotNull final Source < E > source
+    );
 
 
     /// Creates a slot with a class type of `boolean`.
@@ -880,6 +998,34 @@ public interface Substrates {
       @NotNull State value
     );
 
+
+    /// Creates a subscriber with the specified name and subscribing behavior.
+    ///
+    /// @param name       the name to be used by the subject assigned to the subscriber
+    /// @param subscriber the subscribing behavior to be applied when a new subject emits as an emission
+    /// @return a new non-null subscriber instance configured with the provided subscribing behavior
+
+    @NotNull
+    < E > Subscriber < E > subscriber (
+      @NotNull final Name name,
+      @NotNull final BiConsumer < Subject, Registrar < E > > subscriber
+    );
+
+
+    /// Creates a subscriber with the specified name and pool of pipes.
+    ///
+    /// @param name the name to be used by the subject assigned to the subscriber
+    /// @param pool the pool of pipes to be used when a subscription is requested
+    /// @param <E>  the class type of emitted value
+    /// @return a new non-null subscriber instance configured with the provided pool
+    /// @throws NullPointerException if the name or pool params are `null`
+
+    @NotNull
+    < E > Subscriber < E > subscriber (
+      @NotNull final Name name,
+      @NotNull Pool < ? extends Pipe < E > > pool
+    );
+
   }
 
 
@@ -976,7 +1122,7 @@ public interface Substrates {
     /// @throws NullPointerException if the consumer is `null`
 
     default void enclosure (
-      @NotNull final Consumer < T > consumer
+      @NotNull final Consumer < ? super T > consumer
     ) {
 
       enclosure ()
@@ -1151,7 +1297,7 @@ public interface Substrates {
     CharSequence part ();
 
 
-    /// Returns a `CharSequence` representation of this subject including enclosing subjects.
+    /// Returns a `CharSequence` representation of the subject, including enclosing subjects.
     ///
     /// @return A non-`null` `CharSequence` representation and this subject and its enclosure.
 
@@ -1403,6 +1549,8 @@ public interface Substrates {
 
 
   /// An interface that provides access to a pipe for emitting values
+  /// @see Channel
+  /// @see Pipe
 
   @Abstract
   sealed interface Inlet < E >
@@ -1411,6 +1559,7 @@ public interface Substrates {
     /// Returns a pipe that this inlet holds.
     ///
     /// @return a non-`null` pipe instance
+    /// @see Pipe
 
     @NotNull
     Pipe < E > pipe ();
@@ -1418,6 +1567,9 @@ public interface Substrates {
   }
 
   /// Represents one or more name (string) parts, much like a namespace.
+  /// @see Subject#name()
+  /// @see Extent
+  /// @see Cortex#name(String)
 
   @Identity
   @Provided
@@ -1624,6 +1776,11 @@ public interface Substrates {
 
   }
 
+  /// Represents a configurable processing pipeline for data transformation.
+  /// @see Assembly
+  /// @see Sequencer
+  /// @see Channel#pipe(Sequencer)
+  /// @see Sift
   @Provided
   interface Path < E >
     extends Assembly {
@@ -1762,6 +1919,10 @@ public interface Substrates {
   /// An abstraction that serves to pass typed values along a pipeline.
   ///
   /// @param <E> the class type of the emitted values
+  /// @see Channel
+  /// @see Path
+  /// @see Subscriber
+  /// @see Registrar
 
   @Abstract
   @Extension
@@ -1795,6 +1956,10 @@ public interface Substrates {
   /// Manages instances of a pooled type by name, creating them on demand.
   ///
   /// @param <T> The instance type
+  /// @see Container
+  /// @see Cortex#pool(Object)
+  /// @see Name
+  /// @see Subject
   @Abstract
   interface Pool < T > {
 
@@ -1838,7 +2003,7 @@ public interface Substrates {
     ///
     /// @param name The name of the instance
     /// @return A newly created instance or a previously pooled instance
-    /// @throws NullPointerException if key is null
+    /// @throws NullPointerException if the name is null
 
     @NotNull
     T get (
@@ -1856,6 +2021,8 @@ public interface Substrates {
   }
 
   /// An interface used to coordinate the processing of queued events.
+  /// @see Circuit#queue()
+  /// @see Script
 
   @Provided
   interface Queue {
@@ -1874,10 +2041,10 @@ public interface Substrates {
     );
 
 
-    /// Posts a named [Script] to the queue.
+    /// Posts a named Script to the queue.
     ///
-    /// @param name   the name of the [Script]
-    /// @param script the [Script] to be posted
+    /// @param name   the name of the Script
+    /// @param script the Script to be posted
 
     void post (
       @NotNull Name name,
@@ -1887,6 +2054,9 @@ public interface Substrates {
   }
 
   /// Links a [Subject] to a [Pipe]
+  /// @see Subject
+  /// @see Pipe
+  /// @see Subscriber
 
   @Temporal
   @Provided
@@ -1903,10 +2073,13 @@ public interface Substrates {
   }
 
   /// An interface that serves to explicitly dispose of resources.
+  /// @see Component
+  /// @see Sink
+  /// @see Subscription
+  /// @see Scope
 
   @Abstract
   sealed interface Resource
-    extends Substrate
     permits Component,
             Sink,
             Subscription {
@@ -1921,6 +2094,10 @@ public interface Substrates {
   }
 
   /// Represents a resource management scope.
+  /// @see Resource
+  /// @see Closure
+  /// @see Cortex#scope()
+  /// @see AutoCloseable
 
   @Utility
   @Provided
@@ -1992,6 +2169,9 @@ public interface Substrates {
   ///
   /// Scripts provide a way to execute code within the context of a circuit's
   /// processing pipeline, ensuring proper coordination with other operations.
+  /// @see Queue
+  /// @see Current
+  /// @see Circuit#queue()
 
   @Extension
   interface Script {
@@ -2013,6 +2193,10 @@ public interface Substrates {
   /// to assembly components like paths and sifts.
   ///
   /// @param <A> the type of assembly this sequencer configures
+  /// @see Assembly
+  /// @see Path
+  /// @see Sift
+  /// @see Channel#pipe(Sequencer)
 
   @Extension
   interface Sequencer < A extends Assembly > {
@@ -2034,6 +2218,9 @@ public interface Substrates {
   /// and relative positions in a sorted sequence.
   ///
   /// @param <E> the type of elements being filtered
+  /// @see Path#sift(Comparator, Sequencer)
+  /// @see Assembly
+  /// @see Sequencer
 
   @Temporal
   @Provided
@@ -2064,7 +2251,7 @@ public interface Substrates {
     );
 
 
-    /// Creates a sift that only passes values in the higher end of the range.
+    /// Creates a sift that only passes values that represent a new high value.
     ///
     /// @return A new sift that filters for high values
 
@@ -2072,7 +2259,7 @@ public interface Substrates {
     Sift < E > high ();
 
 
-    /// Creates a sift that only passes values in the lower end of the range.
+    /// Creates a sift that only passes values that represent a new low value.
     ///
     /// @return A new sift that filters for low values
 
@@ -2122,15 +2309,20 @@ public interface Substrates {
   /// An in-memory buffer of captures.
   ///
   /// @param <E> the class type of the emitted value
+  /// @see Capture
+  /// @see Cortex#sink(Source)
+  /// @see Resource
 
   @Provided
   non-sealed interface Sink < E >
-    extends Resource {
+    extends Substrate,
+            Resource {
 
     /// Returns a stream representing the events that have accumulated since the
     /// sink was created or the last call to this method.
     ///
     /// @return A stream consisting of stored events.
+    /// @see Capture
 
     @NotNull
     Stream < Capture < E > > drain ();
@@ -2140,6 +2332,9 @@ public interface Substrates {
   /// An opaque interface representing a variable (slot) within a state chain.
   ///
   /// @param <T> the class type of the value extracted from the target
+  /// @see State
+  /// @see Name
+  /// @see Cortex#slot
 
   @Utility
   @Provided
@@ -2173,123 +2368,34 @@ public interface Substrates {
   /// An interface for subscribing to source events.
   ///
   /// @param <E> the class type of emitted value
+  /// @see Subscriber
+  /// @see Subscription
+  /// @see Context
+  /// @see Component
 
   @Provided
-  interface Source < E > {
-
-    /// Subscribes a [Pipe][Pipe] to receive the emittance for every subject registered with this source.
-    ///
-    /// @param pipe the pipe to be registered with all subjects
-    /// @return The subscription used to control future delivery of emittances to the pipe
-    /// @throws NullPointerException if pipe is `null`
-
-    @NotNull
-    Subscription consume (
-      @NotNull Pipe < ? super Capture < E > > pipe
-    );
-
-
-    /// Subscribes a [Pipe][Pipe] to receive the emittance for every subject registered with this source.
-    ///
-    /// @param name the name used as the subject for the subscription
-    /// @param pipe the pipe to be registered with all subjects
-    /// @return The subscription used to control future delivery of emittances to the pipe
-    /// @throws NullPointerException if pipe is `null`
-
-    @NotNull
-    Subscription consume (
-      @NotNull Name name,
-      @NotNull Pipe < ? super Capture < E > > pipe
-    );
-
-
-    /// Returns a [Sink] that captures and stores emittances from this source.
-    ///
-    /// @return A sink that captures and stores emittances from this source
-
-    @NotNull
-    Sink < E > sink ();
-
+  interface Source < E >
+    extends Substrate {
 
     /// Subscribes a [Subscriber] to receive subject registrations from this source
     ///
     /// @param subscriber the subscriber to be subscribed
     /// @return The subscription used to control future delivery
     /// @throws NullPointerException if subscriber is `null`
+    /// @see Subscriber
+    /// @see Subscription
 
     @NotNull
     Subscription subscribe (
       @NotNull Subscriber < E > subscriber
-    );
-
-
-    /// Subscribes a [Subscriber] to receive subject registrations from this source
-    ///
-    /// @param name       the name used as the subject for the subscription
-    /// @param subscriber the subscriber to be subscribed
-    /// @return The subscription used to control future delivery
-    /// @throws NullPointerException if name or subscriber are `null`
-
-    @NotNull
-    Subscription subscribe (
-      @NotNull Name name,
-      @NotNull Subscriber < E > subscriber
-    );
-
-
-    /// Subscribes a [Pipe] to every subject registered with this source
-    ///
-    /// @param func the function that produces a pipe to be registered
-    /// @return The subscription used to control future delivery
-    /// @throws NullPointerException if func is `null`
-
-    @NotNull
-    Subscription subscribe (
-      @NotNull Function < ? super Subject, ? extends Pipe < E > > func
-    );
-
-
-    /// Subscribes a [Pipe] to a specific subject registered with this source
-    ///
-    /// @param name the name used as the subject for the subscription
-    /// @param func the function that produces a pipe to be registered
-    /// @return The subscription used to control future delivery
-    /// @throws NullPointerException if name or func are `null`
-
-    @NotNull
-    Subscription subscribe (
-      @NotNull Name name,
-      @NotNull Function < ? super Subject, ? extends Pipe < E > > func
-    );
-
-
-    /// Subscribes a [Conduit] to every subject registered with this source
-    ///
-    /// @param conduit the conduit producing a pipe to be registered
-    /// @return The subscription used to control future delivery
-    /// @throws NullPointerException if name or func are `null`
-
-    @NotNull
-    Subscription subscribe (
-      @NotNull Conduit < ? extends Pipe < E >, E > conduit
-    );
-
-
-    /// Subscribes a [Conduit] to a specific subject registered with this source
-    ///
-    /// @param name    the name used as the subject for the subscription
-    /// @param conduit the conduit producing a pipe to be registered
-    /// @return The subscription used to control future delivery
-    /// @throws NullPointerException if name or func are `null`
-
-    @NotNull
-    Subscription subscribe (
-      @NotNull Name name,
-      @NotNull Conduit < ? extends Pipe < E >, E > conduit
     );
 
   }
 
+  /// Represents an immutable collection of named slots containing typed values.
+  /// @see Slot
+  /// @see Subject#state()
+  /// @see Cortex#state()
   @Provided
   interface State
     extends Iterable < Slot < ? > > {
@@ -2435,6 +2541,10 @@ public interface Substrates {
   }
 
   /// A [Subject][Subject] represents a referent that maintains an identity as well as [State][State].
+  /// @see Id
+  /// @see Name
+  /// @see State
+  /// @see Substrate
 
   @Identity
   @Provided
@@ -2444,6 +2554,7 @@ public interface Substrates {
     /// Returns a unique identifier for this subject.
     ///
     /// @return A unique identifier for this subject
+    /// @see Id
 
     @NotNull
     Id id ();
@@ -2452,6 +2563,7 @@ public interface Substrates {
     /// The [Name] associated with this reference.
     ///
     /// @return a non-null name reference
+    /// @see Name
 
     @NotNull
     Name name ();
@@ -2476,6 +2588,7 @@ public interface Substrates {
 
 
     /// Returns the current state of this subject.
+    /// @see State
 
     @NotNull
     State state ();
@@ -2501,9 +2614,11 @@ public interface Substrates {
       CLOCK,
       CONDUIT,
       CONTAINER,
+      SOURCE,
       SCOPE,
       SCRIPT,
       SINK,
+      SUBSCRIBER,
       SUBSCRIPTION
     }
 
@@ -2512,14 +2627,22 @@ public interface Substrates {
   /// Connects outlet pipes with emitting subjects within a source.
   ///
   /// @param <E> the class type of the emitted value
+  /// @see Source
+  /// @see Subject
+  /// @see Registrar
+  /// @see Pipe
+  /// @see Cortex#subscriber(Name, BiConsumer)
 
-  @Extension
-  interface Subscriber < E > {
+  @Provided
+  interface Subscriber < E >
+    extends BiConsumer < Subject, Registrar < E > >,
+            Substrate {
 
     /// @param subject   the [Subject] of the [Channel]
     /// @param registrar a registrar used for registering a pipe to capture sourced events
     /// @throws NullPointerException if subject or registrar are `null`
 
+    @Override
     void accept (
       @NotNull Subject subject,
       @Temporal @NotNull Registrar < E > registrar
@@ -2529,14 +2652,20 @@ public interface Substrates {
 
 
   /// An interface used for unregistering interest in receiving subscribed events.
+  /// @see Source#subscribe(Subscriber)
+  /// @see Resource
+  /// @see Clock#consume(Name, Clock.Cycle, Pipe)
 
   @Provided
   non-sealed interface Subscription
-    extends Resource {
+    extends Substrate,
+            Resource {
 
   }
 
 
+  /// Base interface for all substrate components that have an associated subject.
+  /// @see Subject
   @Abstract
   @Extension
   interface Substrate {
@@ -2544,6 +2673,7 @@ public interface Substrates {
     /// Returns the subject identifying this substrate
     ///
     /// @return The subject associated with this substrate.
+    /// @see Subject
 
     @NotNull
     Subject subject ();

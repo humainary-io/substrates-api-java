@@ -12,7 +12,7 @@
 
   <properties>
 
-    <revision>1.0.0-M11</revision>
+    <revision>1.0.0-M12</revision>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
@@ -30,16 +30,17 @@
     <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
     <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
     <maven-site-plugin.version>4.0.0-M16</maven-site-plugin.version>
-    <maven-install-plugin.version>3.1.3</maven-install-plugin.version>
-    <maven-deploy-plugin.version>3.1.3</maven-deploy-plugin.version>
-    <maven-clean-plugin.version>3.4.0</maven-clean-plugin.version>
+    <maven-install-plugin.version>3.1.4</maven-install-plugin.version>
+    <maven-deploy-plugin.version>3.1.4</maven-deploy-plugin.version>
+    <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
+
     <maven.test.skip>true</maven.test.skip>
 
     <versions-maven-plugin.version>2.18.0</versions-maven-plugin.version>
 
     <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version>
 
-    <junit.version>5.13.0-M3</junit.version>
+    <junit.version>5.13.1</junit.version>
     <junit-jupiter.version>${junit.version}</junit-jupiter.version>
 
     <jmh.version>1.37</jmh.version>
