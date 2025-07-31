@@ -110,16 +110,16 @@ public interface Substrates {
 
     /// Returns a pipe that will use this channel to emit values.
     ///
-    /// @param sequencer The sequencer responsible for creating paths in the conduit.
+    /// @param sequencer The sequencer responsible for creating pipeline segments in the conduit.
     /// @return A pipe instance that will use this channel to emit values
     /// @throws NullPointerException if the specified sequencer is `null`
     /// @see Pipe
     /// @see Sequencer
-    /// @see Path
+    /// @see Segment
 
     @NotNull
     Pipe < E > pipe (
-      @NotNull Sequencer < ? super Path < E > > sequencer
+      @NotNull Sequencer < ? super Segment < E > > sequencer
     );
 
   }
@@ -202,7 +202,7 @@ public interface Substrates {
     ///
     /// @param name      the name given to the conduit's subject
     /// @param composer  The composer that forms percepts around a channel.
-    /// @param sequencer The sequencer responsible for creating paths in the conduit.
+    /// @param sequencer The sequencer responsible for creating segments in the conduit.
     /// @param <P>       The class type of the percept.
     /// @param <E>       The class type of emitted value.
     /// @return A conduit that will use this circuit to process and deliver values emitted.
@@ -212,7 +212,7 @@ public interface Substrates {
     < P, E > Conduit < P, E > conduit (
       @NotNull Name name,
       @NotNull Composer < ? extends P, E > composer,
-      @NotNull Sequencer < Path < E > > sequencer
+      @NotNull Sequencer < Segment < E > > sequencer
     );
 
 
@@ -247,19 +247,20 @@ public interface Substrates {
     ///
     /// @param name      the name given to the container's subject.
     /// @param composer  The composer that forms percepts around a channel.
-    /// @param sequencer The sequencer responsible for creating paths in conduits.
+    /// @param sequencer The sequencer responsible for creating segments in conduits.
     /// @throws NullPointerException if the specified name, composer, or sequencer is `null`
 
     @NotNull
     < P, E > Container < Pool < P >, Source < E > > container (
       @NotNull Name name,
       @NotNull Composer < P, E > composer,
-      @NotNull Sequencer < Path < E > > sequencer
+      @NotNull Sequencer < Segment < E > > sequencer
     );
 
 
     /// Returns a [Queue] that can be used to coordinate execution with the
     /// underlying pipeline processing as well as to execute scripts
+    ///
     /// @see Queue
     /// @see Script
 
@@ -269,6 +270,7 @@ public interface Substrates {
   }
 
   /// A component that emits clock ticks.
+  ///
   /// @see Circuit#clock()
   /// @see Instant
   /// @see Clock.Cycle
@@ -417,13 +419,13 @@ public interface Substrates {
     /// Returns a composer that returns a channel's pipe
     ///
     /// @param <E>       the class type of emitted value
-    /// @param sequencer The sequencer responsible for creating paths in the conduit.
+    /// @param sequencer The sequencer responsible for creating segments in the conduit.
     /// @return a composer that returns a channel's pipe
     /// @throws NullPointerException if the specified sequencer is `null`
 
     @NotNull
     static < E > Composer < Pipe < E >, E > pipe (
-      @NotNull final Sequencer < ? super Path < E > > sequencer
+      @NotNull final Sequencer < ? super Segment < E > > sequencer
     ) {
 
       requireNonNull ( sequencer );
@@ -554,6 +556,7 @@ public interface Substrates {
   }
 
   /// The main entry point into the underlying substrates runtime.
+  ///
   /// @see Circuit
   /// @see Name
   /// @see Scope
@@ -1549,6 +1552,7 @@ public interface Substrates {
 
 
   /// An interface that provides access to a pipe for emitting values
+  ///
   /// @see Channel
   /// @see Pipe
 
@@ -1567,6 +1571,7 @@ public interface Substrates {
   }
 
   /// Represents one or more name (string) parts, much like a namespace.
+  ///
   /// @see Subject#name()
   /// @see Extent
   /// @see Cortex#name(String)
@@ -1776,151 +1781,11 @@ public interface Substrates {
 
   }
 
-  /// Represents a configurable processing pipeline for data transformation.
-  /// @see Assembly
-  /// @see Sequencer
-  /// @see Channel#pipe(Sequencer)
-  /// @see Sift
-  @Provided
-  interface Path < E >
-    extends Assembly {
-
-    /// Returns a new path that extends the current pipe with a differencing pipeline operation
-
-    @NotNull
-    Path < E > diff ();
-
-
-    /// Returns a new path that extends the current pipeline with a differencing operation.
-    ///
-    /// @param initial the initial value used for differencing
-    /// @throws NullPointerException if the initial value is `null`
-
-    @NotNull
-    Path < E > diff (
-      @NotNull E initial
-    );
-
-
-    /// Returns a new path that forwards emissions to the specified pipe.
-    ///
-    /// @param pipe the pipe to forward emissions to
-    /// @return A new path with the forwarding operation added
-    /// @throws NullPointerException if the pipe is `null`
-
-    @NotNull
-    Path < E > forward (
-      @NotNull Pipe < E > pipe
-    );
-
-
-    /// Returns a new path that extends the current pipeline with a guard operation.
-    ///
-    /// @param predicate the initial value used for guarding
-    /// @throws NullPointerException if the predicate is `null`
-
-    @NotNull
-    Path < E > guard (
-      @NotNull Predicate < ? super E > predicate
-    );
-
-
-    /// Returns a new path that extends the current pipeline with a guard operation.
-    ///
-    /// @param initial   the initial value to compare against
-    /// @param predicate the predicate used for guarding
-    /// @throws NullPointerException if the predicate is `null`
-
-    @NotNull
-    Path < E > guard (
-      E initial,
-      @NotNull BiPredicate < ? super E, ? super E > predicate
-    );
-
-
-    /// Returns a new path that limits the throughput of the current pipeline to a maximum number of emitted values
-    ///
-    /// @param limit the initial maximum number of emitted values
-    /// @throws NullPointerException if the predicate is `null`
-    @NotNull
-    Path < E > limit (
-      long limit
-    );
-
-
-    /// Returns a new path that allows inspection of emissions without modifying them.
-    ///
-    /// @param consumer the consumer that will be called for each emission passing through
-    /// @return A new path with the peek operation added
-    /// @throws NullPointerException if the consumer is `null`
-
-    @NotNull
-    Path < E > peek (
-      @NotNull Consumer < E > consumer
-    );
-
-
-    /// Returns a new path that extends the current pipeline with a reduction operation.
-    ///
-    /// @param initial  the initial value used for reduction
-    /// @param operator the operation applied for each reduction
-
-    @NotNull
-    Path < E > reduce (
-      E initial,
-      @NotNull BinaryOperator < E > operator
-    );
-
-
-    /// Returns a new path that extends the current pipeline with a replacement operation
-    ///
-    /// @param transformer the operation applied for each possible replacement
-
-    @NotNull
-    Path < E > replace (
-      @NotNull UnaryOperator < E > transformer
-    );
-
-
-    /// Returns a new path that extends the current pipeline with a sampling operation
-    ///
-    /// @param sample the number of emittances between samples
-
-    @NotNull
-    Path < E > sample (
-      int sample
-    );
-
-
-    /// Returns a new path that extends the current pipeline with a sampling operation
-    ///
-    /// @param sample the sampling rate that samples occur at
-
-    @NotNull
-    Path < E > sample (
-      double sample
-    );
-
-
-    /// Returns a new path that extends the current pipeline with a sampling operation
-    ///
-    /// @param comparator the comparator used by a sift subassembly line
-    /// @param sequencer  the sequencer that configures the sift assembly
-    /// @throws NullPointerException if the comparator or sequencer are `null`
-
-    @NotNull
-    Path < E > sift (
-      @NotNull Comparator < E > comparator,
-      @NotNull Sequencer < ? super Sift < E > > sequencer
-    );
-
-  }
-
   /// An abstraction that serves to pass typed values along a pipeline.
   ///
   /// @param <E> the class type of the emitted values
   /// @see Channel
-  /// @see Path
+  /// @see Segment
   /// @see Subscriber
   /// @see Registrar
 
@@ -2021,6 +1886,7 @@ public interface Substrates {
   }
 
   /// An interface used to coordinate the processing of queued events.
+  ///
   /// @see Circuit#queue()
   /// @see Script
 
@@ -2054,6 +1920,7 @@ public interface Substrates {
   }
 
   /// Links a [Subject] to a [Pipe]
+  ///
   /// @see Subject
   /// @see Pipe
   /// @see Subscriber
@@ -2073,6 +1940,7 @@ public interface Substrates {
   }
 
   /// An interface that serves to explicitly dispose of resources.
+  ///
   /// @see Component
   /// @see Sink
   /// @see Subscription
@@ -2094,6 +1962,7 @@ public interface Substrates {
   }
 
   /// Represents a resource management scope.
+  ///
   /// @see Resource
   /// @see Closure
   /// @see Cortex#scope()
@@ -2169,6 +2038,7 @@ public interface Substrates {
   ///
   /// Scripts provide a way to execute code within the context of a circuit's
   /// processing pipeline, ensuring proper coordination with other operations.
+  ///
   /// @see Queue
   /// @see Current
   /// @see Circuit#queue()
@@ -2187,14 +2057,155 @@ public interface Substrates {
 
   }
 
+  /// Represents a configurable processing pipeline for data transformation.
+  ///
+  /// @see Assembly
+  /// @see Sequencer
+  /// @see Channel#pipe(Sequencer)
+  /// @see Sift
+  @Provided
+  interface Segment < E >
+    extends Assembly {
+
+    /// Returns a new segment that extends the current pipe with a differencing pipeline operation
+
+    @NotNull
+    Segment < E > diff ();
+
+
+    /// Returns a new segment that extends the current pipeline with a differencing operation.
+    ///
+    /// @param initial the initial value used for differencing
+    /// @throws NullPointerException if the initial value is `null`
+
+    @NotNull
+    Segment < E > diff (
+      @NotNull E initial
+    );
+
+
+    /// Returns a new segment that forwards emissions to the specified pipe.
+    ///
+    /// @param pipe the pipe to forward emissions to
+    /// @return A new segment with the forwarding operation added
+    /// @throws NullPointerException if the pipe is `null`
+
+    @NotNull
+    Segment < E > forward (
+      @NotNull Pipe < E > pipe
+    );
+
+
+    /// Returns a new segment that extends the current pipeline with a guard operation.
+    ///
+    /// @param predicate the initial value used for guarding
+    /// @throws NullPointerException if the predicate is `null`
+
+    @NotNull
+    Segment < E > guard (
+      @NotNull Predicate < ? super E > predicate
+    );
+
+
+    /// Returns a new segment that extends the current pipeline with a guard operation.
+    ///
+    /// @param initial   the initial value to compare against
+    /// @param predicate the predicate used for guarding
+    /// @throws NullPointerException if the predicate is `null`
+
+    @NotNull
+    Segment < E > guard (
+      E initial,
+      @NotNull BiPredicate < ? super E, ? super E > predicate
+    );
+
+
+    /// Returns a new segment that limits the throughput of the current pipeline to a maximum number of emitted values
+    ///
+    /// @param limit the initial maximum number of emitted values
+    /// @throws NullPointerException if the predicate is `null`
+    @NotNull
+    Segment < E > limit (
+      long limit
+    );
+
+
+    /// Returns a new segment that allows inspection of emissions without modifying them.
+    ///
+    /// @param consumer the consumer that will be called for each emission passing through
+    /// @return A new segment with the peek operation added
+    /// @throws NullPointerException if the consumer is `null`
+
+    @NotNull
+    Segment < E > peek (
+      @NotNull Consumer < E > consumer
+    );
+
+
+    /// Returns a new segment that extends the current pipeline with a reduction operation.
+    ///
+    /// @param initial  the initial value used for reduction
+    /// @param operator the operation applied for each reduction
+
+    @NotNull
+    Segment < E > reduce (
+      E initial,
+      @NotNull BinaryOperator < E > operator
+    );
+
+
+    /// Returns a new segment that extends the current pipeline with a replacement operation
+    ///
+    /// @param transformer the operation applied for each possible replacement
+
+    @NotNull
+    Segment < E > replace (
+      @NotNull UnaryOperator < E > transformer
+    );
+
+
+    /// Returns a new segment that extends the current pipeline with a sampling operation
+    ///
+    /// @param sample the number of emittances between samples
+
+    @NotNull
+    Segment < E > sample (
+      int sample
+    );
+
+
+    /// Returns a new segment that extends the current pipeline with a sampling operation
+    ///
+    /// @param sample the sampling rate that samples occur at
+
+    @NotNull
+    Segment < E > sample (
+      double sample
+    );
+
+
+    /// Returns a new segment that extends the current pipeline with a sampling operation
+    ///
+    /// @param comparator the comparator used by a sift subassembly line
+    /// @param sequencer  the sequencer that configures the sift assembly
+    /// @throws NullPointerException if the comparator or sequencer are `null`
+
+    @NotNull
+    Segment < E > sift (
+      @NotNull Comparator < E > comparator,
+      @NotNull Sequencer < ? super Sift < E > > sequencer
+    );
+
+  }
+
   /// Responsible for configuring and sequencing assembly components in a pipeline.
   ///
   /// Sequencers define how data flows through a pipeline by applying configurations
-  /// to assembly components like paths and sifts.
+  /// to assembly components like segments and sifts.
   ///
   /// @param <A> the type of assembly this sequencer configures
   /// @see Assembly
-  /// @see Path
+  /// @see Segment
   /// @see Sift
   /// @see Channel#pipe(Sequencer)
 
@@ -2218,7 +2229,7 @@ public interface Substrates {
   /// and relative positions in a sorted sequence.
   ///
   /// @param <E> the type of elements being filtered
-  /// @see Path#sift(Comparator, Sequencer)
+  /// @see Segment#sift(Comparator, Sequencer)
   /// @see Assembly
   /// @see Sequencer
 
@@ -2393,6 +2404,7 @@ public interface Substrates {
   }
 
   /// Represents an immutable collection of named slots containing typed values.
+  ///
   /// @see Slot
   /// @see Subject#state()
   /// @see Cortex#state()
@@ -2541,6 +2553,7 @@ public interface Substrates {
   }
 
   /// A [Subject][Subject] represents a referent that maintains an identity as well as [State][State].
+  ///
   /// @see Id
   /// @see Name
   /// @see State
@@ -2588,6 +2601,7 @@ public interface Substrates {
 
 
     /// Returns the current state of this subject.
+    ///
     /// @see State
 
     @NotNull
@@ -2652,6 +2666,7 @@ public interface Substrates {
 
 
   /// An interface used for unregistering interest in receiving subscribed events.
+  ///
   /// @see Source#subscribe(Subscriber)
   /// @see Resource
   /// @see Clock#consume(Name, Clock.Cycle, Pipe)
@@ -2665,6 +2680,7 @@ public interface Substrates {
 
 
   /// Base interface for all substrate components that have an associated subject.
+  ///
   /// @see Subject
   @Abstract
   @Extension
