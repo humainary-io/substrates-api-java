@@ -71,7 +71,6 @@ public interface Substrates {
   /// A capture of an emitted value with its associated subject
   ///
   /// @param <E> the class type of emitted value
-  /// @see Cortex#capture(Subject, Object)
   /// @see Sink#drain()
 
   @Provided
@@ -95,6 +94,25 @@ public interface Substrates {
 
   }
 
+
+  /// A combined pipe and container for advanced data flow patterns.
+  /// This interface is experimental and may undergo significant changes in future releases.
+  ///
+  /// @param <I> the class type of input values
+  /// @param <E> the class type of emitted values
+  /// @see Pipe
+  /// @see Container
+  /// @see Circuit#cell(Composer, Consumer)
+
+  @Experimental
+  @Provided
+  non-sealed interface Cell < I, E >
+    extends Pipe < I >,
+            Container < Cell < I, E >, E >,
+            Extent < Cell < I, E > > {
+
+  }
+
   /// A (subject) named pipe managed by a conduit.
   ///
   /// @param <E> the class type of emitted value
@@ -110,16 +128,15 @@ public interface Substrates {
 
     /// Returns a pipe that will use this channel to emit values.
     ///
-    /// @param sequencer The sequencer responsible for creating pipeline segments in the conduit.
+    /// @param configurer A consumer responsible for configuring flow in the conduit.
     /// @return A pipe instance that will use this channel to emit values
-    /// @throws NullPointerException if the specified sequencer is `null`
+    /// @throws NullPointerException if the specified configurer is `null`
     /// @see Pipe
-    /// @see Sequencer
-    /// @see Segment
+    /// @see Flow
 
     @NotNull
     Pipe < E > pipe (
-      @NotNull Sequencer < ? super Segment < E > > sequencer
+      @NotNull Consumer < ? super Flow < E > > configurer
     );
 
   }
@@ -136,12 +153,38 @@ public interface Substrates {
   /// @see Clock
   /// @see Conduit
   /// @see Container
-  /// @see Queue
 
   @Provided
   non-sealed interface Circuit
     extends Component < State >,
+            Resource,
             Tap < Circuit > {
+
+    /// Suspends the current thread of execution until the circuit's queue is empty.
+    ///
+    /// This method blocks the calling thread until all currently queued events
+    /// in the circuit have been processed. It cannot be called from within the
+    /// circuit's own thread.
+    ///
+    /// @throws IllegalStateException if called from within the circuit's thread
+
+    void await ();
+
+
+    @Experimental
+    @NotNull
+    < I, E > Cell < I, E > cell (
+      @NotNull Composer < Pipe < I >, E > composer,
+      @NotNull Consumer < Flow < E > > configurer
+    );
+
+
+    @Experimental
+    @NotNull
+    < I, E > Cell < I, E > cell (
+      @NotNull Composer < Pipe < I >, E > composer
+    );
+
 
     /// Returns a clock that will use this circuit to emit clock cycle events.
     ///
@@ -167,7 +210,25 @@ public interface Substrates {
 
     /// Returns a conduit that will use this circuit to process and transfer values emitted.
     ///
-    /// @param composer The composer that forms percepts around a channel.
+    /// @param name       the name given to the conduit's subject
+    /// @param composer   the composer that composes percepts around a channel.
+    /// @param configurer the consumer responsible for configuring the flow in the conduit.
+    /// @param <P>        The class type of the percept.
+    /// @param <E>        The class type of emitted value.
+    /// @return A conduit that will use this circuit to process and deliver values emitted.
+    /// @throws NullPointerException if the specified name or composer is `null`
+
+    @NotNull
+    < P, E > Conduit < P, E > conduit (
+      @NotNull Name name,
+      @NotNull Composer < ? extends P, E > composer,
+      @NotNull Consumer < Flow < E > > configurer
+    );
+
+
+    /// Returns a conduit that will use this circuit to process and transfer values emitted.
+    ///
+    /// @param composer a composer that composes percepts around a channel.
     /// @param <E>      The class type of emitted value.
     /// @param <P>      The class type of the percept.
     /// @return A conduit that will use this circuit to process and deliver values emitted.
@@ -185,7 +246,7 @@ public interface Substrates {
     /// Returns a conduit that will use this circuit to process and transfer values emitted.
     ///
     /// @param name     the name given to the conduit's subject
-    /// @param composer The composer that forms percepts around a channel.
+    /// @param composer the composer that composes percepts around a channel.
     /// @param <P>      The class type of the percept.
     /// @param <E>      The class type of emitted value.
     /// @return A conduit that will use this circuit to process and deliver values emitted.
@@ -197,86 +258,19 @@ public interface Substrates {
       @NotNull Composer < ? extends P, E > composer
     );
 
-
-    /// Returns a conduit that will use this circuit to process and transfer values emitted.
-    ///
-    /// @param name      the name given to the conduit's subject
-    /// @param composer  The composer that forms percepts around a channel.
-    /// @param sequencer The sequencer responsible for creating segments in the conduit.
-    /// @param <P>       The class type of the percept.
-    /// @param <E>       The class type of emitted value.
-    /// @return A conduit that will use this circuit to process and deliver values emitted.
-    /// @throws NullPointerException if the specified name or composer is `null`
-
-    @NotNull
-    < P, E > Conduit < P, E > conduit (
-      @NotNull Name name,
-      @NotNull Composer < ? extends P, E > composer,
-      @NotNull Sequencer < Segment < E > > sequencer
-    );
-
-
-    /// Returns a container that will use this circuit to create conduits
-    ///
-    /// @param composer The composer that forms percepts around a channel.
-    /// @throws NullPointerException if the specified composer is `null`
-    /// @see Container
-    /// @see Pool
-    /// @see Source
-
-    @NotNull
-    < P, E > Container < Pool < P >, Source < E > > container (
-      @NotNull Composer < P, E > composer
-    );
-
-
-    /// Returns a container that will use this circuit to create conduits
-    ///
-    /// @param name     the name given to the container's subject.
-    /// @param composer The composer that forms percepts around a channel.
-    /// @throws NullPointerException if the specified name or composer is `null`
-
-    @NotNull
-    < P, E > Container < Pool < P >, Source < E > > container (
-      @NotNull Name name,
-      @NotNull Composer < P, E > composer
-    );
-
-
-    /// Returns a container that will use this circuit to create conduits
-    ///
-    /// @param name      the name given to the container's subject.
-    /// @param composer  The composer that forms percepts around a channel.
-    /// @param sequencer The sequencer responsible for creating segments in conduits.
-    /// @throws NullPointerException if the specified name, composer, or sequencer is `null`
-
-    @NotNull
-    < P, E > Container < Pool < P >, Source < E > > container (
-      @NotNull Name name,
-      @NotNull Composer < P, E > composer,
-      @NotNull Sequencer < Segment < E > > sequencer
-    );
-
-
-    /// Returns a [Queue] that can be used to coordinate execution with the
-    /// underlying pipeline processing as well as to execute scripts
-    ///
-    /// @see Queue
-    /// @see Script
-
-    @NotNull
-    Queue queue ();
-
   }
+
 
   /// A component that emits clock ticks.
   ///
   /// @see Circuit#clock()
   /// @see Instant
   /// @see Clock.Cycle
+
   @Provided
   non-sealed interface Clock
-    extends Component < Instant > {
+    extends Component < Instant >,
+            Resource {
 
     /// A utility method that subscribes a pipe to events of a particular cycle
     ///
@@ -298,7 +292,7 @@ public interface Substrates {
 
     /// Represents a published clock cycle.
     ///
-    /// The enum value is used to define the [Name][Name] for a clock sensor [Subject][Subject].
+    /// The enum value is used to define the [Name] for a clock sensor [Subject].
     ///
     /// @see Name#name(Enum)
 
@@ -330,10 +324,12 @@ public interface Substrates {
 
       /// Returns the number of time units this cycle represents.
       ///
-      /// @return the number of time units
+      /// @return The number of time units
 
       public long units () {
+
         return units;
+
       }
 
     }
@@ -363,18 +359,17 @@ public interface Substrates {
   @Abstract
   sealed interface Component < E >
     extends Substrate,
-            Context < E >,
-            Resource
+            Context < E >
     permits Circuit,
             Clock,
             Container {
 
   }
 
-  /// A composer that forms percepts around a channel.
+  /// A composer that composes percepts around a channel.
   ///
+  /// @param <P> the class type of the percept
   /// @param <E> the class type of emitted value
-  /// @param <P> The class type of the percept
   /// @see Channel
   /// @see Pipe
   /// @see Circuit#conduit(Composer)
@@ -387,7 +382,7 @@ public interface Substrates {
     /// Returns the identity composer.
     ///
     /// @param <E> the class type of emitted value
-    /// @return the identity composer
+    /// @return The identity composer
 
     @NotNull
     static < E > Composer < Channel < E >, E > channel () {
@@ -401,7 +396,7 @@ public interface Substrates {
     ///
     /// @param <E>  the class type of emitted value
     /// @param type the class type of the emitted value
-    /// @return a composer that returns a typed channel
+    /// @return A composer that returns a typed channel
     /// @throws NullPointerException if the specified type param is `null`
 
     @NotNull
@@ -418,21 +413,21 @@ public interface Substrates {
 
     /// Returns a composer that returns a channel's pipe
     ///
-    /// @param <E>       the class type of emitted value
-    /// @param sequencer The sequencer responsible for creating segments in the conduit.
-    /// @return a composer that returns a channel's pipe
-    /// @throws NullPointerException if the specified sequencer is `null`
+    /// @param <E>        the class type of emitted value
+    /// @param configurer a consumer responsible for configuring a flow in the conduit.
+    /// @return A composer that returns a channel's pipe
+    /// @throws NullPointerException if the specified configurer is `null`
 
     @NotNull
     static < E > Composer < Pipe < E >, E > pipe (
-      @NotNull final Sequencer < ? super Segment < E > > sequencer
+      @NotNull final Consumer < ? super Flow < E > > configurer
     ) {
 
-      requireNonNull ( sequencer );
+      requireNonNull ( configurer );
 
       return channel ->
         channel.pipe (
-          sequencer
+          configurer
         );
 
     }
@@ -442,7 +437,7 @@ public interface Substrates {
     ///
     /// @param <E>  the class type of emitted value
     /// @param type the class type of the emitted value
-    /// @return a composer that returns a typed channel's pipe
+    /// @return A composer that returns a typed channel's pipe
     /// @throws NullPointerException if the specified type param is `null`
 
     @NotNull
@@ -460,7 +455,7 @@ public interface Substrates {
     /// Returns a composer that returns a channel's pipe
     ///
     /// @param <E> the class type of emitted value
-    /// @return a composer that returns a channel's pipe
+    /// @return A composer that returns a channel's pipe
 
     @NotNull
     static < E > Composer < Pipe < E >, E > pipe () {
@@ -473,7 +468,7 @@ public interface Substrates {
     /// Composes a channel into a percept.
     ///
     /// @param channel the channel to be composed
-    /// @return the composition from the channel
+    /// @return The composition from the channel
     /// @throws NullPointerException if the specified channel is `null`
 
     @NotNull
@@ -485,7 +480,7 @@ public interface Substrates {
     /// Returns a new composer that applies a function the results of this composer
     ///
     /// @param <R> the class type of resulting percept
-    /// @return a composer that applies a function the results of this composer
+    /// @return A composer that applies a function the results of this composer
     /// @throws NullPointerException if the specified mapper param is `null`
 
     @NotNull
@@ -503,7 +498,6 @@ public interface Substrates {
 
   }
 
-
   /// Creates percepts that emit captured data into pipes.
   ///
   /// @param <P> the class type of the percept
@@ -514,11 +508,12 @@ public interface Substrates {
   /// @see Circuit#conduit(Composer)
 
   @Provided
-  interface Conduit < P, E >
+  non-sealed interface Conduit < P, E >
     extends Container < P, E >,
             Tap < Conduit < P, E > > {
 
   }
+
 
   /// Creates and manages an instance pool and notifies of events associated with such instances
   ///
@@ -526,12 +521,13 @@ public interface Substrates {
   /// @param <E> the class type of component (source) emittance
   /// @see Pool
   /// @see Component
-  /// @see Circuit#container(Composer)
 
-  @Provided
-  non-sealed interface Container < P, E >
+  @Abstract
+  sealed interface Container < P, E >
     extends Pool < P >,
-            Component < E > {
+            Component < E >
+    permits Conduit,
+            Cell {
 
   }
 
@@ -567,22 +563,6 @@ public interface Substrates {
   @Provided
   interface Cortex {
 
-
-    /// Creates a capture of an emitted value with its associated subject.
-    ///
-    /// @param subject  the subject that emitted the value
-    /// @param emission the emitted value
-    /// @param <E>      the class type of emitted value
-    /// @return a new capture instance containing the subject and emission
-    /// @throws NullPointerException if the subject or emission params are `null`
-
-    @NotNull
-    < E > Capture < E > capture (
-      @NotNull final Subject subject,
-      @NotNull final E emission
-    );
-
-
     /// Returns a newly created circuit instance
     ///
     /// @return A non-null circuit instance
@@ -603,11 +583,14 @@ public interface Substrates {
     );
 
 
-    /// Returns a new name that has this name as a direct or indirect prefix.
+    /// Parses the supplied path into an interned name.
+    /// The path uses `.` as the separator; empty segments are rejected and cached segments are reused.
+    /// Paths must not begin or end with `.` nor contain consecutive separators (for example: `.foo`, `foo.`, `foo..bar`).
     ///
-    /// @param path the string to be parsed and appended to this name
-    /// @return A new name with the path appended as one or more name parts.
-    /// @throws NullPointerException if the path parameter is `null`
+    /// @param path the string to be parsed into one or more name parts
+    /// @return A name representing the parsed hierarchy
+    /// @throws NullPointerException     if the path parameter is `null`
+    /// @throws IllegalArgumentException if the path is empty or contains empty segments
 
     @NotNull
     Name name (
@@ -615,10 +598,10 @@ public interface Substrates {
     );
 
 
-    /// Returns a new name that has this name as a direct prefix and a path of the enum name.
+    /// Returns an interned name that appends the enum's [Enum#name()] value to the constant's declaring type.
     ///
     /// @param path the enum to be appended to this name
-    /// @return A new name with the enum name appended a name part.
+    /// @return A name representing the enum constant hierarchy joined to its declaring type
     /// @throws NullPointerException if the path parameter is `null`
 
     @NotNull
@@ -627,11 +610,13 @@ public interface Substrates {
     );
 
 
-    /// Returns a name from iterating over string values.
+    /// Returns an interned name from iterating over string values.
+    /// Each value may contain dot-separated segments; at least one value must be provided.
     ///
     /// @param it the iterable to be iterated over
     /// @return The name following concatenation of name parts
-    /// @throws NullPointerException if the iterable is `null` or one of the values returned is `null`
+    /// @throws NullPointerException     if the iterable is `null` or one of the values returned is `null`
+    /// @throws IllegalArgumentException if the iterable yields no values or an invalid path segment
 
     @NotNull
     Name name (
@@ -639,13 +624,15 @@ public interface Substrates {
     );
 
 
-    /// Returns a name from iterating over values mapped to strings.
+    /// Returns an interned name from iterating over values mapped to strings.
+    /// Each mapped value may contain dot-separated segments; at least one value must be provided.
     ///
     /// @param <T>    the type of each value iterated over
     /// @param it     the iterable to be iterated over
     /// @param mapper the function to be used to map the iterable value type to a string
     /// @return The name following concatenation of name parts
-    /// @throws NullPointerException if the iterable is `null` or one of the values returned is `null`
+    /// @throws NullPointerException     if the iterable, mapper, or one of the mapped values is `null`
+    /// @throws IllegalArgumentException if the iterable yields no values or an invalid path segment
 
     @NotNull
     < T > Name name (
@@ -654,11 +641,13 @@ public interface Substrates {
     );
 
 
-    /// Returns a name from iterating over string values.
+    /// Returns an interned name from iterating over string values.
+    /// Each value may contain dot-separated segments; at least one value must be provided.
     ///
     /// @param it the [Iterator] to be iterated over
     /// @return The name following concatenation of name parts
-    /// @throws NullPointerException if the [Iterable] is `null` or one of the values returned is `null`
+    /// @throws NullPointerException     if the iterator is `null` or one of the values returned is `null`
+    /// @throws IllegalArgumentException if the iterator yields no values or an invalid path segment
     /// @see #name(Iterable)
 
     @NotNull
@@ -667,13 +656,15 @@ public interface Substrates {
     );
 
 
-    /// Returns a name from iterating over values mapped to strings.
+    /// Returns an interned name from iterating over values mapped to strings.
+    /// Each mapped value may contain dot-separated segments; at least one value must be provided.
     ///
     /// @param <T>    the type of each value iterated over
     /// @param it     the iterator to be iterated over
     /// @param mapper the function to be used to map the iterator value type to a string
     /// @return The name following concatenation of name parts
-    /// @throws NullPointerException if the iterator is `null` or one of the values returned is `null`
+    /// @throws NullPointerException     if the iterator, mapper, or one of the mapped values is `null`
+    /// @throws IllegalArgumentException if the iterator yields no values or an invalid path segment
     /// @see #name(Iterable, Function)
 
     @NotNull
@@ -683,10 +674,11 @@ public interface Substrates {
     );
 
 
-    /// Creates a name from a class.
+    /// Creates an interned name from a class.
+    /// The fully qualified [Class#getName()] is parsed as dot-separated segments.
     ///
     /// @param type the class to be mapped to a name
-    /// @return A name where the string representation is `name.toString().equals(cls.getName())`
+    /// @return A name where the string representation is `name.toString().equals(type.getName())`
     /// @throws NullPointerException if the type param is `null`
 
     @NotNull
@@ -695,7 +687,8 @@ public interface Substrates {
     );
 
 
-    /// Creates a name from a member
+    /// Creates an interned name from a member.
+    /// The declaring class hierarchy is extended with the member name.
     ///
     /// @param member the member to be mapped to a name
     /// @return A name mapped to the member
@@ -711,7 +704,7 @@ public interface Substrates {
     ///
     /// @param singleton the singleton instance to be returned by the pool
     /// @param <T>       the class type of the singleton
-    /// @return a pool that always returns the same singleton instance
+    /// @return A pool that always returns the same singleton instance
     /// @throws NullPointerException if the singleton param is `null`
 
     @NotNull
@@ -742,7 +735,7 @@ public interface Substrates {
     /// Creates a Sink instance for the given context's source.
     ///
     /// @param context the context providing the source
-    /// @return a new Sink instance associated with the provided context's source
+    /// @return A new Sink instance associated with the provided context's source
     /// @throws NullPointerException if context is null
 
     @NotNull
@@ -761,7 +754,7 @@ public interface Substrates {
     ///
     /// @param source the source from which the sink will capture emissions
     /// @param <E>    the class type of emitted value
-    /// @return a new Sink object of the same type as the given source
+    /// @return A new Sink object of the same type as the given source
     /// @throws NullPointerException if the source param is null
 
     @NotNull
@@ -812,11 +805,11 @@ public interface Substrates {
     );
 
 
-    /// Creates a slot with a class type `int`.
+    /// Creates a slot with a class type `double`.
     ///
     /// @param name  the name for the slot
     /// @param value the value for the slot
-    /// @return A slot with a class type of `int`.
+    /// @return A slot with a class type of `double`.
     /// @throws NullPointerException if the name param is `null`
 
     @NotNull
@@ -1006,7 +999,7 @@ public interface Substrates {
     ///
     /// @param name       the name to be used by the subject assigned to the subscriber
     /// @param subscriber the subscribing behavior to be applied when a new subject emits as an emission
-    /// @return a new non-null subscriber instance configured with the provided subscribing behavior
+    /// @return A new non-null subscriber instance configured with the provided subscribing behavior
 
     @NotNull
     < E > Subscriber < E > subscriber (
@@ -1020,7 +1013,7 @@ public interface Substrates {
     /// @param name the name to be used by the subject assigned to the subscriber
     /// @param pool the pool of pipes to be used when a subscription is requested
     /// @param <E>  the class type of emitted value
-    /// @return a new non-null subscriber instance configured with the provided pool
+    /// @return A new non-null subscriber instance configured with the provided pool
     /// @throws NullPointerException if the name or pool params are `null`
 
     @NotNull
@@ -1031,22 +1024,17 @@ public interface Substrates {
 
   }
 
+  /// Indicates an API that is experimental and subject to change in future releases.
+  ///
+  /// Experimental APIs are not considered stable and may be modified or removed
+  /// without following normal deprecation policies. Use with caution in production code.
+  ///
+  /// @since 1.0
 
-  /// An interface that provides efficient access to a circuit's work queue.
-
-  @Provided
-  @Temporal
-  interface Current
-    extends Substrate {
-
-    /// Posts a runnable to be executed asynchronously
-    ///
-    /// @throws NullPointerException if the runnable param is `null`
-
-    void post (
-      @NotNull Runnable runnable
-    );
-
+  @Documented
+  @Retention ( SOURCE )
+  @Target ( {TYPE, METHOD, CONSTRUCTOR, FIELD} )
+  @interface Experimental {
   }
 
 
@@ -1074,13 +1062,13 @@ public interface Substrates {
     /// Returns a negative integer, zero, or a positive integer as this
     /// object is less than, equal to, or greater than the specified object.
     ///
-    /// @return a negative integer, zero, or a positive integer as this object
+    /// @return A negative integer, zero, or a positive integer as this object
     ///  is less than, equal to, or greater than the specified object.
     /// @throws NullPointerException if the `other` param is `null`
 
     @Override
     default int compareTo (
-      final T other
+      @NotNull final T other
     ) {
 
       requireNonNull ( other );
@@ -1095,7 +1083,7 @@ public interface Substrates {
 
     /// Returns the depth of this extent within all enclosures.
     ///
-    /// @return the depth of this extent within all enclosures.
+    /// @return The depth of this extent within all enclosures.
 
     default int depth () {
 
@@ -1321,7 +1309,7 @@ public interface Substrates {
 
     @NotNull
     default CharSequence path (
-      @NotNull final char separator
+      final char separator
     ) {
 
       return path (
@@ -1360,7 +1348,7 @@ public interface Substrates {
     @NotNull
     default CharSequence path (
       @NotNull final Function < ? super T, ? extends CharSequence > mapper,
-      @NotNull final char separator
+      final char separator
     ) {
 
       requireNonNull ( mapper );
@@ -1448,7 +1436,7 @@ public interface Substrates {
     /// Returns true if this `Extent` is directly or indirectly enclosed within the extent parameter.
     ///
     /// @param enclosure the extent to be checked whether it enclosed this extent
-    /// @return true if the extent parameter encloses this extent, directly or indirectly
+    /// @return `true` if the extent parameter encloses this extent, directly or indirectly
     /// @throws NullPointerException if `enclosure` param is `null`
 
     default boolean within (
@@ -1479,7 +1467,172 @@ public interface Substrates {
 
   }
 
-  /// Indicates a method that returns this for method chaining.
+  /// Represents a configurable processing pipeline for data transformation.
+  ///
+  /// @see Assembly
+  /// @see Channel#pipe(Consumer)
+  /// @see Sift
+
+  @Provided
+  interface Flow < E >
+    extends Assembly,
+            Tap < Flow < E > > {
+
+    /// Returns a flow that extends the current pipe with a differencing pipeline operation
+
+    @NotNull
+    @Fluent
+    Flow < E > diff ();
+
+
+    /// Returns a flow that extends the current pipeline with a differencing operation.
+    ///
+    /// @param initial the initial value used for differencing
+    /// @throws NullPointerException if the initial value is `null`
+
+    @NotNull
+    @Fluent
+    Flow < E > diff (
+      @NotNull E initial
+    );
+
+
+    /// Returns a flow that forwards emissions to the specified pipe.
+    ///
+    /// @param pipe the pipe to forward emissions to
+    /// @return A flow with the forwarding operation added
+    /// @throws NullPointerException if the pipe is `null`
+
+    @NotNull
+    @Fluent
+    Flow < E > forward (
+      @NotNull Pipe < E > pipe
+    );
+
+
+    /// Returns a flow that extends the current pipeline with a guard operation.
+    ///
+    /// @param predicate the initial value used for guarding
+    /// @throws NullPointerException if the predicate is `null`
+
+    @NotNull
+    @Fluent
+    Flow < E > guard (
+      @NotNull Predicate < ? super E > predicate
+    );
+
+
+    /// Returns a flow that extends the current pipeline with a guard operation.
+    ///
+    /// @param initial   the initial value to compare against
+    /// @param predicate the predicate used for guarding
+    /// @throws NullPointerException if the predicate is `null`
+
+    @NotNull
+    @Fluent
+    Flow < E > guard (
+      E initial,
+      @NotNull BiPredicate < ? super E, ? super E > predicate
+    );
+
+
+    /// Returns a flow that limits the throughput of the current pipeline to a maximum number of emitted values
+    ///
+    /// @param limit the maximum number of emitted values
+
+    @NotNull
+    @Fluent
+    Flow < E > limit (
+      int limit
+    );
+
+
+    /// Returns a flow that limits the throughput of the current pipeline to a maximum number of emitted values
+    ///
+    /// @param limit the maximum number of emitted values
+
+    @NotNull
+    @Fluent
+    Flow < E > limit (
+      long limit
+    );
+
+
+    /// Returns a flow that allows inspection of emissions without modifying them.
+    ///
+    /// @param consumer the consumer that will be called for each emission passing through
+    /// @return A flow with the peek operation added
+    /// @throws NullPointerException if the consumer is `null`
+
+    @NotNull
+    @Fluent
+    Flow < E > peek (
+      @NotNull Consumer < E > consumer
+    );
+
+
+    /// Returns a flow that extends the current pipeline with a reduction operation.
+    ///
+    /// @param initial  the initial value used for reduction
+    /// @param operator the operation applied for each reduction
+
+    @NotNull
+    @Fluent
+    Flow < E > reduce (
+      E initial,
+      @NotNull BinaryOperator < E > operator
+    );
+
+
+    /// Returns a flow that extends the current pipeline with a replacement operation
+    ///
+    /// @param transformer the operation applied for each possible replacement
+
+    @NotNull
+    @Fluent
+    Flow < E > replace (
+      @NotNull UnaryOperator < E > transformer
+    );
+
+
+    /// Returns a flow that extends the current pipeline with a sampling operation
+    ///
+    /// @param sample the number of emittances between samples
+
+    @NotNull
+    @Fluent
+    Flow < E > sample (
+      int sample
+    );
+
+
+    /// Returns a flow that extends the current pipeline with a sampling operation
+    ///
+    /// @param sample the sampling rate that samples occur at
+
+    @NotNull
+    @Fluent
+    Flow < E > sample (
+      double sample
+    );
+
+
+    /// Returns a flow that extends the current pipeline with a sampling operation
+    ///
+    /// @param comparator the comparator used by a sift subassembly line
+    /// @param configurer the consumer used to configure the sift assembly
+    /// @throws NullPointerException if the comparator or configurer are `null`
+
+    @NotNull
+    @Fluent
+    Flow < E > sift (
+      @NotNull Comparator < E > comparator,
+      @NotNull Consumer < ? super Sift < E > > configurer
+    );
+
+  }
+
+  /// Indicates a method that returns `this` instance for method chaining.
 
   @Documented
   @Retention ( SOURCE )
@@ -1535,6 +1688,7 @@ public interface Substrates {
   interface Id {
   }
 
+
   /// Indicates a method expected to be idempotent.
   @Documented
   @Retention ( SOURCE )
@@ -1550,7 +1704,6 @@ public interface Substrates {
   @interface Identity {
   }
 
-
   /// An interface that provides access to a pipe for emitting values
   ///
   /// @see Channel
@@ -1562,7 +1715,7 @@ public interface Substrates {
 
     /// Returns a pipe that this inlet holds.
     ///
-    /// @return a non-`null` pipe instance
+    /// @return A non-`null` pipe instance
     /// @see Pipe
 
     @NotNull
@@ -1571,6 +1724,8 @@ public interface Substrates {
   }
 
   /// Represents one or more name (string) parts, much like a namespace.
+  /// Instances are interned so equal hierarchies share the same reference and
+  /// can be compared by identity.
   ///
   /// @see Subject#name()
   /// @see Extent
@@ -1585,10 +1740,13 @@ public interface Substrates {
     char SEPARATOR = '.';
 
 
-    /// Returns a new name that has this name as a direct or indirect prefix.
+    /// Returns a name that has this name as a direct or indirect prefix.
+    /// Reuses interned segments so invoking this method with the same suffix
+    /// yields the same instance.
     ///
     /// @param suffix the name to be appended to this name
-    /// @return A new name with the suffix appended.
+    /// @return A name with the suffix appended
+    /// @throws NullPointerException if the suffix parameter is `null`
 
     @NotNull
     Name name (
@@ -1596,10 +1754,16 @@ public interface Substrates {
     );
 
 
-    /// Returns a new name that has this name as a direct or indirect prefix.
+    /// Returns a name whose hierarchy includes this name and the supplied path.
+    /// The path is parsed using the `.` separator; empty segments are rejected
+    /// and interned segments are reused when possible. Paths must not begin or
+    /// end with `.` nor contain consecutive separators (for example: `.foo`,
+    /// `foo.`, `foo..bar`).
     ///
     /// @param path the string to be parsed and appended to this name
-    /// @return A new name with the path appended as one or more name parts.
+    /// @return A name with the path appended as one or more name parts
+    /// @throws NullPointerException     if the path parameter is `null`
+    /// @throws IllegalArgumentException if the path is empty or contains empty segments
 
     @NotNull
     Name name (
@@ -1607,11 +1771,13 @@ public interface Substrates {
     );
 
 
-    /// Returns a new name that has this name as a direct prefix and a path of the enum name.
+    /// Returns a name that has this name as a direct prefix and appends the enum's [Enum#name()] value.
+    /// The declaring type of the enum constant is used (per [Enum#getDeclaringClass()]);
+    /// cached segments ensure repeated extensions with the same enum reuse the same instance.
     ///
     /// @param path the enum to be appended to this name
-    /// @return A new name with the enum name appended a name part.
-    /// @throws NullPointerException if the path parameter is null
+    /// @return A name with the enum name appended as a name part
+    /// @throws NullPointerException if the path parameter is `null`
 
     @NotNull
     Name name (
@@ -1619,7 +1785,8 @@ public interface Substrates {
     );
 
 
-    /// Returns a new extension of this name from iterating over a specified [Iterable] of [String] values.
+    /// Returns an extension of this name from iterating over a specified [Iterable] of [String] values.
+    /// When the iterable is empty this name is returned unchanged; interned segments are reused when possible.
     ///
     /// @param parts the [Iterable] to be iterated over
     /// @return The name following concatenation of name parts
@@ -1631,13 +1798,14 @@ public interface Substrates {
     );
 
 
-    /// Returns a new extension of this name from iterating over the specified [Iterable] and applying a transformation function.
+    /// Returns an extension of this name from iterating over the specified [Iterable] and applying a transformation function.
+    /// When the iterable is empty this name is returned unchanged; interned segments are reused when possible.
     ///
     /// @param <T>    the type of each value iterated over
     /// @param parts  the [Iterable] to be iterated over
     /// @param mapper the function to be used to map the iterable value type to a String type
     /// @return The name following concatenation of name parts
-    /// @throws NullPointerException if the [Iterable] is `null` or one of the values returned is `null`
+    /// @throws NullPointerException if the [Iterable], mapper, or one of the mapped values is `null`
 
     @NotNull
     < T > Name name (
@@ -1646,11 +1814,12 @@ public interface Substrates {
     );
 
 
-    /// Returns a new extension of this name from iterating over the specified [Iterator] of [String] values.
+    /// Returns an extension of this name from iterating over the specified [Iterator] of [String] values.
+    /// When the iterator is empty this name is returned unchanged; interned segments are reused when possible.
     ///
     /// @param parts the [Iterator] to be iterated over
     /// @return The name following concatenation of name parts
-    /// @throws NullPointerException if the [Iterable] is `null` or one of the values returned is `null`
+    /// @throws NullPointerException if the [Iterator] is `null` or one of the values returned is `null`
 
     @NotNull
     Name name (
@@ -1658,13 +1827,14 @@ public interface Substrates {
     );
 
 
-    /// Returns a new extension of this name from iterating over the specified [Iterator] and applying a transformation function.
+    /// Returns an extension of this name from iterating over the specified [Iterator] and applying a transformation function.
+    /// When the iterator is empty this name is returned unchanged; interned segments are reused when possible.
     ///
     /// @param <T>    the type of each value iterated over
     /// @param parts  the [Iterator] to be iterated over
     /// @param mapper the function to be used to map the iterator value type
     /// @return The name following concatenation of name parts
-    /// @throws NullPointerException if the [Iterator] is `null` or one of the values returned is `null`
+    /// @throws NullPointerException if the [Iterator], mapper, or one of the mapped values is `null`
     /// @see #name(Iterable, Function)
 
     @NotNull
@@ -1675,22 +1845,24 @@ public interface Substrates {
 
 
     /// Creates a `Name` from a [Class].
+    /// The fully qualified [Class#getName()] is appended as dot-separated segments, reusing interned nodes.
     ///
-    /// @param klass the [Class] to be mapped to a `Name`
-    /// @return A `Name` where `name.toString().equals(cls.getName())`
-    /// @throws NullPointerException if the [Class] typed parameter is `null`
+    /// @param type the `Class` to be mapped to a `Name`
+    /// @return A `Name` where `name.toString().equals(type.getName())`
+    /// @throws NullPointerException if the `Class` typed parameter is `null`
 
     @NotNull
     Name name (
-      @NotNull Class < ? > klass
+      @NotNull Class < ? > type
     );
 
 
-    /// Creates a `Name` from a [Member].
+    /// Creates a `Name` from a `Member`.
+    /// The declaring class hierarchy and member name are appended, reusing interned segments.
     ///
-    /// @param member the [Member] to be mapped to a `Name`
-    /// @return A `Name` mapped to the [Member]
-    /// @throws NullPointerException if the [Member] typed parameter is `null`
+    /// @param member the `Member` to be mapped to a `Name`
+    /// @return A `Name` mapped to the `Member`
+    /// @throws NullPointerException if the `Member` typed parameter is `null`
 
     @NotNull
     Name name (
@@ -1699,9 +1871,11 @@ public interface Substrates {
 
 
     /// Returns a `CharSequence` representation of this name and its enclosing names.
+    /// Applies the mapper to each [#value()] and joins results using the dot separator.
     ///
     /// @param mapper the function used to convert the [#value()] to a character sequence
     /// @return A non-`null` `CharSequence` representation.
+    /// @throws NullPointerException if the mapper is `null`
 
     @NotNull
     CharSequence path (
@@ -1722,7 +1896,7 @@ public interface Substrates {
 
   @Documented
   @Retention ( SOURCE )
-  @Target ( {PARAMETER, METHOD} )
+  @Target ( {PARAMETER, METHOD, FIELD} )
   @interface NotNull {
   }
 
@@ -1785,7 +1959,7 @@ public interface Substrates {
   ///
   /// @param <E> the class type of the emitted values
   /// @see Channel
-  /// @see Segment
+  /// @see Flow
   /// @see Subscriber
   /// @see Registrar
 
@@ -1825,6 +1999,7 @@ public interface Substrates {
   /// @see Cortex#pool(Object)
   /// @see Name
   /// @see Subject
+
   @Abstract
   interface Pool < T > {
 
@@ -1885,40 +2060,6 @@ public interface Substrates {
   @interface Provided {
   }
 
-  /// An interface used to coordinate the processing of queued events.
-  ///
-  /// @see Circuit#queue()
-  /// @see Script
-
-  @Provided
-  interface Queue {
-
-    /// Suspends the current thread of execution until the queue is empty.
-
-    void await ();
-
-
-    /// Posts a [Script] to the queue.
-    ///
-    /// @param script the [Script] to be posted
-
-    void post (
-      @NotNull Script script
-    );
-
-
-    /// Posts a named Script to the queue.
-    ///
-    /// @param name   the name of the Script
-    /// @param script the Script to be posted
-
-    void post (
-      @NotNull Name name,
-      @NotNull Script script
-    );
-
-  }
-
   /// Links a [Subject] to a [Pipe]
   ///
   /// @see Subject
@@ -1941,14 +2082,14 @@ public interface Substrates {
 
   /// An interface that serves to explicitly dispose of resources.
   ///
-  /// @see Component
   /// @see Sink
   /// @see Subscription
   /// @see Scope
 
   @Abstract
   sealed interface Resource
-    permits Component,
+    permits Circuit,
+            Clock,
             Sink,
             Subscription {
 
@@ -2034,204 +2175,14 @@ public interface Substrates {
 
   }
 
-  /// An executable unit of work that can be scheduled for execution in a circuit's queue.
-  ///
-  /// Scripts provide a way to execute code within the context of a circuit's
-  /// processing pipeline, ensuring proper coordination with other operations.
-  ///
-  /// @see Queue
-  /// @see Current
-  /// @see Circuit#queue()
-
-  @Extension
-  interface Script {
-
-    /// Executes this script within the context of the provided current.
-    ///
-    /// @param current the execution context for this script
-    /// @throws NullPointerException if the current is `null`
-
-    void exec (
-      @NotNull Current current
-    );
-
-  }
-
-  /// Represents a configurable processing pipeline for data transformation.
-  ///
-  /// @see Assembly
-  /// @see Sequencer
-  /// @see Channel#pipe(Sequencer)
-  /// @see Sift
-  @Provided
-  interface Segment < E >
-    extends Assembly {
-
-    /// Returns a new segment that extends the current pipe with a differencing pipeline operation
-
-    @NotNull
-    Segment < E > diff ();
-
-
-    /// Returns a new segment that extends the current pipeline with a differencing operation.
-    ///
-    /// @param initial the initial value used for differencing
-    /// @throws NullPointerException if the initial value is `null`
-
-    @NotNull
-    Segment < E > diff (
-      @NotNull E initial
-    );
-
-
-    /// Returns a new segment that forwards emissions to the specified pipe.
-    ///
-    /// @param pipe the pipe to forward emissions to
-    /// @return A new segment with the forwarding operation added
-    /// @throws NullPointerException if the pipe is `null`
-
-    @NotNull
-    Segment < E > forward (
-      @NotNull Pipe < E > pipe
-    );
-
-
-    /// Returns a new segment that extends the current pipeline with a guard operation.
-    ///
-    /// @param predicate the initial value used for guarding
-    /// @throws NullPointerException if the predicate is `null`
-
-    @NotNull
-    Segment < E > guard (
-      @NotNull Predicate < ? super E > predicate
-    );
-
-
-    /// Returns a new segment that extends the current pipeline with a guard operation.
-    ///
-    /// @param initial   the initial value to compare against
-    /// @param predicate the predicate used for guarding
-    /// @throws NullPointerException if the predicate is `null`
-
-    @NotNull
-    Segment < E > guard (
-      E initial,
-      @NotNull BiPredicate < ? super E, ? super E > predicate
-    );
-
-
-    /// Returns a new segment that limits the throughput of the current pipeline to a maximum number of emitted values
-    ///
-    /// @param limit the initial maximum number of emitted values
-    /// @throws NullPointerException if the predicate is `null`
-    @NotNull
-    Segment < E > limit (
-      long limit
-    );
-
-
-    /// Returns a new segment that allows inspection of emissions without modifying them.
-    ///
-    /// @param consumer the consumer that will be called for each emission passing through
-    /// @return A new segment with the peek operation added
-    /// @throws NullPointerException if the consumer is `null`
-
-    @NotNull
-    Segment < E > peek (
-      @NotNull Consumer < E > consumer
-    );
-
-
-    /// Returns a new segment that extends the current pipeline with a reduction operation.
-    ///
-    /// @param initial  the initial value used for reduction
-    /// @param operator the operation applied for each reduction
-
-    @NotNull
-    Segment < E > reduce (
-      E initial,
-      @NotNull BinaryOperator < E > operator
-    );
-
-
-    /// Returns a new segment that extends the current pipeline with a replacement operation
-    ///
-    /// @param transformer the operation applied for each possible replacement
-
-    @NotNull
-    Segment < E > replace (
-      @NotNull UnaryOperator < E > transformer
-    );
-
-
-    /// Returns a new segment that extends the current pipeline with a sampling operation
-    ///
-    /// @param sample the number of emittances between samples
-
-    @NotNull
-    Segment < E > sample (
-      int sample
-    );
-
-
-    /// Returns a new segment that extends the current pipeline with a sampling operation
-    ///
-    /// @param sample the sampling rate that samples occur at
-
-    @NotNull
-    Segment < E > sample (
-      double sample
-    );
-
-
-    /// Returns a new segment that extends the current pipeline with a sampling operation
-    ///
-    /// @param comparator the comparator used by a sift subassembly line
-    /// @param sequencer  the sequencer that configures the sift assembly
-    /// @throws NullPointerException if the comparator or sequencer are `null`
-
-    @NotNull
-    Segment < E > sift (
-      @NotNull Comparator < E > comparator,
-      @NotNull Sequencer < ? super Sift < E > > sequencer
-    );
-
-  }
-
-  /// Responsible for configuring and sequencing assembly components in a pipeline.
-  ///
-  /// Sequencers define how data flows through a pipeline by applying configurations
-  /// to assembly components like segments and sifts.
-  ///
-  /// @param <A> the type of assembly this sequencer configures
-  /// @see Assembly
-  /// @see Segment
-  /// @see Sift
-  /// @see Channel#pipe(Sequencer)
-
-  @Extension
-  interface Sequencer < A extends Assembly > {
-
-    /// Applies configuration to the provided assembly.
-    ///
-    /// @param assembly the assembly to be configured
-    /// @throws NullPointerException if the assembly is `null`
-
-    void apply (
-      @NotNull A assembly
-    );
-
-  }
-
   /// A filtering mechanism for values in a pipeline based on comparison criteria.
   ///
   /// Sift provides various methods to filter values based on thresholds, ranges,
   /// and relative positions in a sorted sequence.
   ///
   /// @param <E> the type of elements being filtered
-  /// @see Segment#sift(Comparator, Sequencer)
+  /// @see Flow#sift(Comparator, Consumer)
   /// @see Assembly
-  /// @see Sequencer
 
   @Temporal
   @Provided
@@ -2415,6 +2366,7 @@ public interface Substrates {
     /// Returns a new [State][State] with duplicates removed.
     ///
     /// @return A new [State][State] with duplicates removed.
+
     @NotNull
     State compact ();
 
@@ -2573,9 +2525,9 @@ public interface Substrates {
     Id id ();
 
 
-    /// The [Name] associated with this reference.
+    /// The {@link Name} associated with this reference.
     ///
-    /// @return a non-null name reference
+    /// @return A non-null name reference
     /// @see Name
 
     @NotNull
@@ -2623,20 +2575,20 @@ public interface Substrates {
 
 
     enum Type {
+      CELL,
       CHANNEL,
       CIRCUIT,
       CLOCK,
       CONDUIT,
-      CONTAINER,
       SOURCE,
       SCOPE,
-      SCRIPT,
       SINK,
       SUBSCRIBER,
       SUBSCRIPTION
     }
 
   }
+
 
   /// Connects outlet pipes with emitting subjects within a source.
   ///
@@ -2649,14 +2601,12 @@ public interface Substrates {
 
   @Provided
   interface Subscriber < E >
-    extends BiConsumer < Subject, Registrar < E > >,
-            Substrate {
+    extends Substrate {
 
     /// @param subject   the [Subject] of the [Channel]
     /// @param registrar a registrar used for registering a pipe to capture sourced events
     /// @throws NullPointerException if subject or registrar are `null`
 
-    @Override
     void accept (
       @NotNull Subject subject,
       @Temporal @NotNull Registrar < E > registrar
@@ -2678,7 +2628,6 @@ public interface Substrates {
 
   }
 
-
   /// Base interface for all substrate components that have an associated subject.
   ///
   /// @see Subject
@@ -2696,8 +2645,21 @@ public interface Substrates {
 
   }
 
+  /// A self-typed interface that provides a fluent tap operation.
+  ///
+  /// This interface enables method chaining by providing a tap method that
+  /// applies a consumer to the instance and returns the instance itself.
+  ///
+  /// @param <T> the self-type of the implementing class
+
   @SuppressWarnings ( "unchecked" )
   interface Tap < T extends Tap < T > > {
+
+    /// Applies the specified consumer to this instance and returns this instance.
+    ///
+    /// @param consumer the consumer to apply to this instance
+    /// @return This instance
+    /// @throws NullPointerException if the consumer is `null`
 
     @Fluent
     default T tap (
@@ -2721,6 +2683,7 @@ public interface Substrates {
   @Target ( {PARAMETER, TYPE} )
   @interface Temporal {
   }
+
 
   /// Indicates a type that serves a utility purpose.
 
