@@ -553,29 +553,48 @@ public interface Substrates {
 
   /// The main entry point into the underlying substrates runtime.
   ///
+  /// The Cortex serves as the primary factory for creating runtime components including
+  /// circuits, names, scopes, sinks, slots, states, and subscribers. Each component type
+  /// can be created with or without an explicit name, and the Cortex manages the interning
+  /// of names to ensure identity-based equality for equivalent hierarchies.
+  ///
   /// @see Circuit
   /// @see Name
+  /// @see Pool
   /// @see Scope
   /// @see Sink
+  /// @see Slot
   /// @see State
   /// @see Subscriber
 
   @Provided
   interface Cortex {
 
-    /// Returns a newly created circuit instance
+    /// Returns a newly created circuit instance with a generated name.
+    ///
+    /// Each circuit maintains its own event processing queue and guarantees ordering
+    /// of emissions. The returned circuit must be closed when no longer needed to
+    /// release resources.
     ///
     /// @return A non-null circuit instance
+    /// @see Circuit#close()
+    /// @see Circuit#await()
 
     @NotNull
     Circuit circuit ();
 
 
-    /// Returns a newly created circuit instance
+    /// Returns a newly created circuit instance with the specified name.
+    ///
+    /// Each circuit maintains its own event processing queue and guarantees ordering
+    /// of emissions. The returned circuit must be closed when no longer needed to
+    /// release resources.
     ///
     /// @param name the name assigned to the circuit's subject
     /// @return A newly created circuit instance
     /// @throws NullPointerException if the specified name is `null`
+    /// @see Circuit#close()
+    /// @see Circuit#await()
 
     @NotNull
     Circuit circuit (
@@ -675,10 +694,11 @@ public interface Substrates {
 
 
     /// Creates an interned name from a class.
-    /// The fully qualified [Class#getName()] is parsed as dot-separated segments.
+    /// The package and enclosing class simple names are joined with dots (matching [Class#getCanonicalName()]
+    /// when available); local or anonymous classes fall back to the runtime name.
     ///
     /// @param type the class to be mapped to a name
-    /// @return A name where the string representation is `name.toString().equals(type.getName())`
+    /// @return A name whose string representation matches `type.getCanonicalName()` when available, otherwise `type.getName()`
     /// @throws NullPointerException if the type param is `null`
 
     @NotNull
@@ -702,10 +722,15 @@ public interface Substrates {
 
     /// Creates a pool that always returns the same singleton instance.
     ///
+    /// The returned pool will return the same singleton instance regardless of
+    /// the name, subject, or substrate used to query it. This is useful for
+    /// providing a shared resource across all components.
+    ///
     /// @param singleton the singleton instance to be returned by the pool
     /// @param <T>       the class type of the singleton
     /// @return A pool that always returns the same singleton instance
     /// @throws NullPointerException if the singleton param is `null`
+    /// @see Pool#get(Name)
 
     @NotNull
     < T > Pool < T > pool (
@@ -713,10 +738,17 @@ public interface Substrates {
     );
 
 
-    /// Returns a new scope instance that manages a provided resource.
+    /// Returns a new scope instance with the specified name for managing resources.
     ///
-    /// @return A scope that calls close on the underlying resource when it is closed
+    /// Scopes provide hierarchical resource lifecycle management. When a scope is closed,
+    /// all resources registered with it (via {@link Scope#register(Resource)}) are automatically
+    /// closed. Child scopes can be created from parent scopes, forming a tree structure.
+    ///
+    /// @param name the name assigned to the scope's subject
+    /// @return A scope that calls close on registered resources when it is closed
     /// @throws NullPointerException if the name param is `null`
+    /// @see Scope#register(Resource)
+    /// @see Scope#close()
 
     @NotNull
     Scope scope (
@@ -724,9 +756,15 @@ public interface Substrates {
     );
 
 
-    /// Returns a new scope instance that manages a provided resource.
+    /// Returns a new scope instance with a generated name for managing resources.
     ///
-    /// @return A scope that calls close on the underlying resource when it is closed
+    /// Scopes provide hierarchical resource lifecycle management. When a scope is closed,
+    /// all resources registered with it (via {@link Scope#register(Resource)}) are automatically
+    /// closed. Child scopes can be created from parent scopes, forming a tree structure.
+    ///
+    /// @return A scope that calls close on registered resources when it is closed
+    /// @see Scope#register(Resource)
+    /// @see Scope#close()
 
     @NotNull
     Scope scope ();
@@ -752,10 +790,17 @@ public interface Substrates {
 
     /// Creates a Sink object from the given Source object.
     ///
+    /// The sink will capture all emissions from the source as {@link Capture} objects,
+    /// which contain both the emitted value and the subject that emitted it. Calling
+    /// {@link Sink#drain()} returns a stream of captured emissions since the sink was
+    /// created or since the last drain call, effectively emptying the buffer each time.
+    ///
     /// @param source the source from which the sink will capture emissions
     /// @param <E>    the class type of emitted value
     /// @return A new Sink object of the same type as the given source
     /// @throws NullPointerException if the source param is null
+    /// @see Sink#drain()
+    /// @see Capture
 
     @NotNull
     < E > Sink < E > sink (
@@ -997,9 +1042,17 @@ public interface Substrates {
 
     /// Creates a subscriber with the specified name and subscribing behavior.
     ///
+    /// When subscribed to a source, the subscriber's behavior is invoked each time a new
+    /// channel or emitting subject is created within that source. The behavior receives
+    /// the subject and a registrar, allowing it to dynamically register pipes to receive
+    /// emissions from that specific subject.
+    ///
     /// @param name       the name to be used by the subject assigned to the subscriber
     /// @param subscriber the subscribing behavior to be applied when a new subject emits as an emission
     /// @return A new non-null subscriber instance configured with the provided subscribing behavior
+    /// @throws NullPointerException if the name or subscriber params are `null`
+    /// @see Source#subscribe(Subscriber)
+    /// @see Registrar#register(Pipe)
 
     @NotNull
     < E > Subscriber < E > subscriber (
@@ -1010,11 +1063,18 @@ public interface Substrates {
 
     /// Creates a subscriber with the specified name and pool of pipes.
     ///
+    /// When subscribed to a source, the subscriber will automatically obtain a pipe from
+    /// the pool for each new channel or emitting subject, and register that pipe to receive
+    /// emissions. This is convenient when you want all subjects to use the same pipe instance
+    /// (singleton pool) or follow a specific pooling strategy.
+    ///
     /// @param name the name to be used by the subject assigned to the subscriber
     /// @param pool the pool of pipes to be used when a subscription is requested
     /// @param <E>  the class type of emitted value
     /// @return A new non-null subscriber instance configured with the provided pool
     /// @throws NullPointerException if the name or pool params are `null`
+    /// @see Source#subscribe(Subscriber)
+    /// @see Pool#get(Name)
 
     @NotNull
     < E > Subscriber < E > subscriber (
@@ -1845,10 +1905,12 @@ public interface Substrates {
 
 
     /// Creates a `Name` from a [Class].
-    /// The fully qualified [Class#getName()] is appended as dot-separated segments, reusing interned nodes.
+    /// The package and enclosing class simple names are used for the appended segments
+    /// (matching [Class#getCanonicalName()] when available); local or anonymous classes
+    /// fall back to the runtime name for their appended value.
     ///
     /// @param type the `Class` to be mapped to a `Name`
-    /// @return A `Name` where `name.toString().equals(type.getName())`
+    /// @return A `Name` that appends the class hierarchy to this name using canonical segments when available
     /// @throws NullPointerException if the `Class` typed parameter is `null`
 
     @NotNull
@@ -2117,6 +2179,10 @@ public interface Substrates {
             Extent < Scope >,
             AutoCloseable {
 
+    /// Operations on a scope are only valid while it remains open.
+    /// Once [close()][Scope#close()] has been invoked, requesting closures, registering resources,
+    /// or creating child scopes will throw an [IllegalStateException].
+    ///
     @Idempotent
     @Override
     void close ();
@@ -2127,7 +2193,9 @@ public interface Substrates {
     /// @param <R>      the type of resource
     /// @param resource the resource to be managed within the closure
     /// @return A closure that manages the specified resource
-    /// @throws NullPointerException if the resource is `null`
+    /// @throws NullPointerException  if the resource is `null`
+    /// @throws IllegalStateException if this scope has been closed
+    /// @implNote Repeated calls with the same resource return the same closure until the closure has been consumed.
 
     @NotNull
     < R extends Resource > Closure < R > closure (
@@ -2140,7 +2208,8 @@ public interface Substrates {
     /// @param <R>      the type of resource
     /// @param resource the resource to be registered with this scope
     /// @return The registered resource (same as input)
-    /// @throws NullPointerException if the resource is `null`
+    /// @throws NullPointerException  if the resource is `null`
+    /// @throws IllegalStateException if this scope has been closed
 
     @NotNull
     < R extends Resource > R register (
@@ -2152,7 +2221,8 @@ public interface Substrates {
     ///
     /// @param name the name for the new child scope
     /// @return A new scope that is a child of this scope
-    /// @throws NullPointerException if the name is `null`
+    /// @throws NullPointerException  if the name is `null`
+    /// @throws IllegalStateException if this scope has been closed
 
     @NotNull
     Scope scope ( @NotNull Name name );
@@ -2161,6 +2231,7 @@ public interface Substrates {
     /// Creates a new anonymous child scope within this scope.
     ///
     /// @return A new scope that is a child of this scope
+    /// @throws IllegalStateException if this scope has been closed
 
     @NotNull
     Scope scope ();
@@ -2293,8 +2364,19 @@ public interface Substrates {
 
   /// An opaque interface representing a variable (slot) within a state chain.
   ///
+  /// Slots serve as templates for state lookups, providing both a query key
+  /// (name + type) and a fallback value. Matching occurs on slot name identity
+  /// AND slot type - multiple slots may share the same name if they have different types.
+  ///
+  /// For primitive types (boolean, int, long, float, double), the [#type()] method
+  /// returns the primitive class (e.g., `int.class`, not `Integer.class`).
+  ///
+  /// Slot instances are immutable - the value returned by [#value()] never changes
+  /// across multiple invocations on the same slot instance.
+  ///
   /// @param <T> the class type of the value extracted from the target
-  /// @see State
+  /// @see State#value(Slot)
+  /// @see State#values(Slot)
   /// @see Name
   /// @see Cortex#slot
 
@@ -2355,6 +2437,7 @@ public interface Substrates {
   }
 
   /// Represents an immutable collection of named slots containing typed values.
+  /// Slots iterate from the most recently added entry to the oldest, supporting persistent updates.
   ///
   /// @see Slot
   /// @see Subject#state()
@@ -2364,17 +2447,23 @@ public interface Substrates {
     extends Iterable < Slot < ? > > {
 
     /// Returns a new [State][State] with duplicates removed.
+    /// Matching occurs on slot name identity and slot type; the retained value is
+    /// always the most recently added slot while iteration order runs from the
+    /// earliest retained slot to the most recent.
     ///
-    /// @return A new [State][State] with duplicates removed.
+    /// @return A new [State][State] with duplicates removed
 
     @NotNull
     State compact ();
 
 
-    /// Creates a new [State][State] with the specified name and value added as a [Slot][Slot]
+    /// Returns a state that includes a [Slot][Slot] mapped to the specified value.
+    /// The slot is inserted before existing entries; if an equal slot (same name and value)
+    /// already exists this state instance is returned.
     ///
     /// @param name  the name of the slot
     /// @param value the value of the slot
+    /// @return A state containing the specified slot
     /// @throws NullPointerException if name is `null`
 
     @NotNull
@@ -2384,10 +2473,12 @@ public interface Substrates {
     );
 
 
-    /// Creates a new [State][State] with the specified name and value added as a [Slot][Slot]
+    /// Returns a state that includes a [Slot][Slot] mapped to the specified value.
+    /// Semantics match [#state(Name, int)] for a `long` value.
     ///
     /// @param name  the name of the slot
     /// @param value the value of the slot
+    /// @return A state containing the specified slot
     /// @throws NullPointerException if name is `null`
 
     @NotNull
@@ -2397,10 +2488,12 @@ public interface Substrates {
     );
 
 
-    /// Creates a new [State][State] with the specified name and value added as a [Slot][Slot]
+    /// Returns a state that includes a [Slot][Slot] mapped to the specified value.
+    /// Semantics match [#state(Name, int)] for a `float` value.
     ///
     /// @param name  the name of the slot
     /// @param value the value of the slot
+    /// @return A state containing the specified slot
     /// @throws NullPointerException if name is `null`
 
     @NotNull
@@ -2410,10 +2503,12 @@ public interface Substrates {
     );
 
 
-    /// Creates a new [State][State] with the specified name and value added as a [Slot][Slot]
+    /// Returns a state that includes a [Slot][Slot] mapped to the specified value.
+    /// Semantics match [#state(Name, int)] for a `double` value.
     ///
     /// @param name  the name of the slot
     /// @param value the value of the slot
+    /// @return A state containing the specified slot
     /// @throws NullPointerException if name is `null`
 
     @NotNull
@@ -2423,10 +2518,12 @@ public interface Substrates {
     );
 
 
-    /// Creates a new [State][State] with the specified name and value added as a [Slot][Slot]
+    /// Returns a state that includes a [Slot][Slot] mapped to the specified value.
+    /// Semantics match [#state(Name, int)] for a `boolean` value.
     ///
     /// @param name  the name of the slot
     /// @param value the value of the slot
+    /// @return A state containing the specified slot
     /// @throws NullPointerException if name is `null`
 
     @NotNull
@@ -2436,10 +2533,13 @@ public interface Substrates {
     );
 
 
-    /// Creates a new [State][State] with the specified name and value added as a [Slot][Slot]
+    /// Returns a state that includes a [Slot][Slot] mapped to the specified value.
+    /// The slot is inserted before existing entries; if an equal slot (same name and value)
+    /// already exists this state instance is returned.
     ///
     /// @param name  the name of the slot
     /// @param value the value of the slot
+    /// @return A state containing the specified slot
     /// @throws NullPointerException if name or value is `null`
 
     @NotNull
@@ -2449,10 +2549,13 @@ public interface Substrates {
     );
 
 
-    /// Creates a new [State][State] with the specified name and value added as a [Slot][Slot]
+    /// Returns a state that includes a [Slot][Slot] mapped to the specified value.
+    /// The slot is inserted before existing entries; if an equal slot (same name and value)
+    /// already exists this state instance is returned.
     ///
     /// @param name  the name of the slot
     /// @param value the value of the slot
+    /// @return A state containing the specified slot
     /// @throws NullPointerException if name or value is `null`
 
     @NotNull
@@ -2462,10 +2565,13 @@ public interface Substrates {
     );
 
 
-    /// Creates a new [State][State] with the specified name and value added as a [Slot][Slot]
+    /// Returns a state that includes a [Slot][Slot] mapped to the specified value.
+    /// The slot is inserted before existing entries; if an equal slot (same name and value)
+    /// already exists this state instance is returned.
     ///
     /// @param name  the name of the slot
     /// @param value the value of the slot
+    /// @return A state containing the specified slot
     /// @throws NullPointerException if name or value is `null`
 
     @NotNull
@@ -2475,16 +2581,21 @@ public interface Substrates {
     );
 
 
-    /// Returns a [Stream][Stream] of all [Slots][Slot] in this state
+    /// Returns a sequential [Stream][Stream] of all [Slots][Slot] in this state,
+    /// iterating from the most recently added slot to the oldest.
+    ///
+    /// @return A non-`null` sequential stream of slots
 
     @NotNull
     Stream < Slot < ? > > stream ();
 
 
-    /// Returns the value of a slot matching the specified slot
-    /// or the value of the specified slot when not found.
+    /// Returns the value of a slot matching the specified template
+    /// or the template's own value when no slot is present.
+    /// Matching occurs on slot name identity and slot type.
     ///
     /// @param slot the slot to lookup and fallback onto for the source of a value
+    /// @return The stored value when present; otherwise the value returned by the supplied slot
     /// @throws NullPointerException if slot is `null`
 
     < T > T value (
@@ -2492,9 +2603,11 @@ public interface Substrates {
     );
 
 
-    /// Returns a [Stream][Stream] of all [Slots][Slot] in this state that match the specified slot.
+    /// Returns a sequential [Stream][Stream] of all values from slots that match the specified template.
+    /// Matching occurs on slot name identity and slot type, and results are ordered from the most recent slot to the oldest.
     ///
     /// @param slot the slot to lookup
+    /// @return A non-`null` stream of matching values
     /// @throws NullPointerException if slot is `null`
 
     @NotNull
