@@ -14,7 +14,6 @@ import java.util.stream.StreamSupport;
 import static java.lang.annotation.ElementType.*;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 import static java.util.Objects.requireNonNull;
-import static java.util.Optional.empty;
 import static java.util.Spliterator.*;
 
 /// The Substrates API provides a flexible framework for building event-driven and observability systems
@@ -50,7 +49,7 @@ import static java.util.Spliterator.*;
 ///
 ///     - Digital Twin mirrored state and computational processing units
 ///
-/// @author autoletics
+/// @author William David Louth
 /// @since 1.0
 
 public interface Substrates {
@@ -68,13 +67,14 @@ public interface Substrates {
   }
 
 
-  /// A capture of an emitted value with its associated subject
+  /// A capture of an emitted value with its associated typed subject
   ///
   /// @param <E> the class type of emitted value
+  /// @param <S> the substrate type that emitted the value
   /// @see Sink#drain()
 
   @Provided
-  interface Capture < E > {
+  interface Capture < E, S extends Substrate < S > > {
 
     /// Returns the emitted value.
     ///
@@ -84,13 +84,13 @@ public interface Substrates {
     E emission ();
 
 
-    /// Returns the subject that emitted the value.
+    /// Returns the typed subject that emitted the value.
     ///
-    /// @return The subject that emitted the value
+    /// @return The typed subject that emitted the value
     /// @see Subject
 
     @NotNull
-    Subject subject ();
+    Subject < S > subject ();
 
   }
 
@@ -108,8 +108,8 @@ public interface Substrates {
   @Provided
   non-sealed interface Cell < I, E >
     extends Pipe < I >,
-            Container < Cell < I, E >, E >,
-            Extent < Cell < I, E > > {
+            Container < Cell < I, E >, E, Cell < I, E > >,
+            Extent < Cell < I, E >, Cell < I, E > > {
 
   }
 
@@ -122,7 +122,7 @@ public interface Substrates {
 
   @Provided
   non-sealed interface Channel < E >
-    extends Substrate,
+    extends Substrate < Channel < E > >,
             Inlet < E > {
 
 
@@ -156,7 +156,7 @@ public interface Substrates {
 
   @Provided
   non-sealed interface Circuit
-    extends Component < State >,
+    extends Component < State, Circuit >,
             Resource,
             Tap < Circuit > {
 
@@ -269,7 +269,7 @@ public interface Substrates {
 
   @Provided
   non-sealed interface Clock
-    extends Component < Instant >,
+    extends Component < Instant, Clock >,
             Resource {
 
     /// A utility method that subscribes a pipe to events of a particular cycle
@@ -352,14 +352,17 @@ public interface Substrates {
 
   }
 
-  /// An abstraction that represents a managed event-sourcing component
+  /// An abstraction that represents a managed event-sourcing component.
+  ///
+  /// A Component is the base type for all event-sourcing objects in the
+  /// framework, inheriting its behavior from the {@link Context} interface.
   ///
   /// @param <E> the class type of emitted value
+  /// @param <S> the self-referential component type
 
   @Abstract
-  sealed interface Component < E >
-    extends Substrate,
-            Context < E >
+  sealed interface Component < E, S extends Component < E, S > >
+    extends Context < E, S >
     permits Circuit,
             Clock,
             Container {
@@ -509,7 +512,7 @@ public interface Substrates {
 
   @Provided
   non-sealed interface Conduit < P, E >
-    extends Container < P, E >,
+    extends Container < P, E, Conduit < P, E > >,
             Tap < Conduit < P, E > > {
 
   }
@@ -519,35 +522,35 @@ public interface Substrates {
   ///
   /// @param <P> the class type of the pooled object
   /// @param <E> the class type of component (source) emittance
+  /// @param <S> the self-referential container type
   /// @see Pool
   /// @see Component
 
   @Abstract
-  sealed interface Container < P, E >
+  sealed interface Container < P, E, S extends Container < P, E, S > >
     extends Pool < P >,
-            Component < E >
+            Component < E, S >
     permits Conduit,
             Cell {
 
   }
 
-  /// A type that serves to provide access to a source.
+  /// A type that is both a source of events and a substrate with an identity.
+  ///
+  /// This interface combines the {@link Source} and {@link Substrate} interfaces,
+  /// serving as the fundamental building block for components.
   ///
   /// @param <E> the class type of emitted value
+  /// @param <S> the self-referential context type
   /// @see Source
+  /// @see Substrate
   /// @see Component
 
   @Abstract
-  sealed interface Context < E >
+  sealed interface Context < E, S extends Context < E, S > >
+    extends Source < E >,
+            Substrate < S >
     permits Component {
-
-    /// Returns the source provided by this context.
-    ///
-    /// @return A non-null reference to the (emitting) source of this context.
-    /// @see Source
-
-    @NotNull
-    Source < E > source ();
 
   }
 
@@ -770,41 +773,14 @@ public interface Substrates {
     Scope scope ();
 
 
-    /// Creates a Sink instance for the given context's source.
+    /// Creates a Sink instance for the given context.
     ///
-    /// @param context the context providing the source
-    /// @return A new Sink instance associated with the provided context's source
-    /// @throws NullPointerException if context is null
+    /// @param context the context to create a sink for
+    /// @return A new Sink instance associated with the provided context
 
     @NotNull
-    default < E > Sink < E > sink (
-      @NotNull final Context < E > context
-    ) {
-
-      return sink (
-        context.source ()
-      );
-
-    }
-
-
-    /// Creates a Sink object from the given Source object.
-    ///
-    /// The sink will capture all emissions from the source as {@link Capture} objects,
-    /// which contain both the emitted value and the subject that emitted it. Calling
-    /// {@link Sink#drain()} returns a stream of captured emissions since the sink was
-    /// created or since the last drain call, effectively emptying the buffer each time.
-    ///
-    /// @param source the source from which the sink will capture emissions
-    /// @param <E>    the class type of emitted value
-    /// @return A new Sink object of the same type as the given source
-    /// @throws NullPointerException if the source param is null
-    /// @see Sink#drain()
-    /// @see Capture
-
-    @NotNull
-    < E > Sink < E > sink (
-      @NotNull final Source < E > source
+    < E, S extends Context < E, S > > Sink < E > sink (
+      @NotNull final Context < E, S > context
     );
 
 
@@ -892,6 +868,20 @@ public interface Substrates {
     );
 
 
+    /// Creates a slot with a class type of [Name] from an enum.
+    /// The slot's name is derived from the enum's declaring class,
+    /// and the slot's value is a [Name] created from the enum constant's name.
+    ///
+    /// @param value the enum to create a slot from
+    /// @return A slot with a class type of [Name] containing the enum constant's name.
+    /// @throws NullPointerException if value is `null`
+
+    @NotNull
+    Slot < Name > slot (
+      @NotNull Enum < ? > value
+    );
+
+
     /// Creates a slot with a class type of name.
     ///
     /// @param name  the name for the slot
@@ -928,118 +918,6 @@ public interface Substrates {
     State state ();
 
 
-    /// Creates a state with a single slot
-    ///
-    /// @param name  The name of the slot
-    /// @param value The value of the slot
-    /// @return A state holding a single slot.
-    /// @throws NullPointerException if the name param is `null`
-
-    @NotNull
-    State state (
-      @NotNull Name name,
-      int value
-    );
-
-
-    /// Creates a state with a single slot
-    ///
-    /// @param name  The name of the slot
-    /// @param value The value of the slot
-    /// @return A state holding a single slot.
-    /// @throws NullPointerException if the name param is `null`
-
-    @NotNull
-    State state (
-      @NotNull Name name,
-      long value
-    );
-
-
-    /// Creates a state with a single slot
-    ///
-    /// @param name  The name of the slot
-    /// @param value The value of the slot
-    /// @return A state holding a single slot.
-    /// @throws NullPointerException if the name param is `null`
-
-    @NotNull
-    State state (
-      @NotNull Name name,
-      float value
-    );
-
-
-    /// Creates a state with a single slot
-    ///
-    /// @param name  The name of the slot
-    /// @param value The value of the slot
-    /// @return A state holding a single slot.
-    /// @throws NullPointerException if the name param is `null`
-
-    @NotNull
-    State state (
-      @NotNull Name name,
-      double value
-    );
-
-
-    /// Creates a state with a single slot
-    ///
-    /// @param name  The name of the slot
-    /// @param value The value of the slot
-    /// @return A state holding a single slot.
-    /// @throws NullPointerException if the name param is `null`
-
-    @NotNull
-    State state (
-      @NotNull Name name,
-      boolean value
-    );
-
-
-    /// Creates a state with a single slot
-    ///
-    /// @param name  The name of the slot
-    /// @param value The value of the slot
-    /// @return A state holding a single slot.
-    /// @throws NullPointerException if the name or value params are `null`
-
-    @NotNull
-    State state (
-      @NotNull Name name,
-      @NotNull String value
-    );
-
-
-    /// Creates a state with a single slot
-    ///
-    /// @param name  The name of the slot
-    /// @param value The value of the slot
-    /// @return A state holding a single slot.
-    /// @throws NullPointerException if the name or value params are `null`
-
-    @NotNull
-    State state (
-      @NotNull Name name,
-      @NotNull Name value
-    );
-
-
-    /// Creates a state with a single slot
-    ///
-    /// @param name  The name of the slot
-    /// @param value The value of the slot
-    /// @return A state holding a single slot.
-    /// @throws NullPointerException if the name or value params are `null`
-
-    @NotNull
-    State state (
-      @NotNull Name name,
-      @NotNull State value
-    );
-
-
     /// Creates a subscriber with the specified name and subscribing behavior.
     ///
     /// When subscribed to a source, the subscriber's behavior is invoked each time a new
@@ -1057,7 +935,7 @@ public interface Substrates {
     @NotNull
     < E > Subscriber < E > subscriber (
       @NotNull final Name name,
-      @NotNull final BiConsumer < Subject, Registrar < E > > subscriber
+      @NotNull final BiConsumer < Subject < Channel < E > >, Registrar < E > > subscriber
     );
 
 
@@ -1106,29 +984,19 @@ public interface Substrates {
   @interface Extension {
   }
 
-  /// An abstraction of a hierarchically nested structure of enclosed whole-parts
+  /// An abstraction of a hierarchically nested structure of enclosed whole-parts.
   ///
-  /// @param <T> The self-referencing class type
+  /// @param <S> the concrete extent type (usually `this`) returned from [#extent()]
+  /// @param <P> the enclosing extent type iterated during traversal and comparison
 
-  @Abstract
-  @Extension
-  interface Extent < T extends Extent < T > >
-    extends Iterable < T >,
-            Comparable < T > {
+  interface Extent < S extends Extent < S, P >, P extends Extent < ?, P > >
+    extends Iterable < P >,
+            Comparable < P > {
 
-
-    /// Compares this object with the specified object for order.
-    ///
-    /// Returns a negative integer, zero, or a positive integer as this
-    /// object is less than, equal to, or greater than the specified object.
-    ///
-    /// @return A negative integer, zero, or a positive integer as this object
-    ///  is less than, equal to, or greater than the specified object.
-    /// @throws NullPointerException if the `other` param is `null`
 
     @Override
     default int compareTo (
-      @NotNull final T other
+      @NotNull final P other
     ) {
 
       requireNonNull ( other );
@@ -1147,23 +1015,21 @@ public interface Substrates {
 
     default int depth () {
 
-      return fold (
-        _ -> 1,
-        ( depth, _ ) -> depth + 1
-      );
+      return
+        fold (
+          _ -> 1,
+          ( depth, _ ) -> depth + 1
+        );
 
     }
 
 
     /// Returns the (parent/prefix) extent wrapped in an optional that encloses this extent.
     ///
-    /// @return An optional holding a reference to the enclosing extent or [#empty()].
-
+    /// @return An optional holding a reference to the enclosing extent or [Optional#empty()].
     @NotNull
-    default Optional < T > enclosure () {
-
-      return empty ();
-
+    default Optional < P > enclosure () {
+      return Optional.empty ();
     }
 
 
@@ -1173,7 +1039,7 @@ public interface Substrates {
     /// @throws NullPointerException if the consumer is `null`
 
     default void enclosure (
-      @NotNull final Consumer < ? super T > consumer
+      @NotNull final Consumer < ? super P > consumer
     ) {
 
       enclosure ()
@@ -1188,10 +1054,8 @@ public interface Substrates {
 
     @NotNull
     @SuppressWarnings ( "unchecked" )
-    default T extent () {
-
-      return (T) this;
-
+    default S extent () {
+      return (S) this;
     }
 
 
@@ -1200,17 +1064,17 @@ public interface Substrates {
     /// @return The outermost extent.
 
     @NotNull
-    default T extremity () {
+    @SuppressWarnings ( "unchecked" )
+    default P extremity () {
 
-      T prev;
+      P prev;
 
       var current
-        = extent ();
+        = (P) extent ();
 
       do {
 
-        prev
-          = current;
+        prev = current;
 
         current
           = current
@@ -1233,8 +1097,8 @@ public interface Substrates {
     /// @throws NullPointerException if either initializer or accumulator params are `null`
 
     default < R > R fold (
-      @NotNull final Function < ? super T, ? extends R > initializer,
-      @NotNull final BiFunction < ? super R, ? super T, R > accumulator
+      @NotNull final Function < ? super P, ? extends R > initializer,
+      @NotNull final BiFunction < ? super R, ? super P, R > accumulator
     ) {
 
       requireNonNull ( initializer );
@@ -1271,9 +1135,10 @@ public interface Substrates {
     /// @return The accumulated result of performing the seed once and the accumulator.
     /// @throws NullPointerException if either initializer or accumulator params are `null`
 
+    @SuppressWarnings ( "unchecked" )
     default < R > R foldTo (
-      @NotNull final Function < ? super T, ? extends R > initializer,
-      @NotNull final BiFunction < ? super R, ? super T, R > accumulator
+      @NotNull final Function < ? super P, ? extends R > initializer,
+      @NotNull final BiFunction < ? super R, ? super P, R > accumulator
     ) {
 
       requireNonNull ( initializer );
@@ -1281,17 +1146,17 @@ public interface Substrates {
 
       return enclosure ()
         .map (
-          enclosure
-            -> accumulator.apply (
-            enclosure.foldTo (
-              initializer,
-              accumulator
-            ),
-            extent ()
-          )
+          ( P enclosure ) ->
+            accumulator.apply (
+              enclosure.foldTo (
+                initializer,
+                accumulator
+              ),
+              (P) extent ()
+            )
         ).orElse (
           initializer.apply (
-            extent ()
+            (P) extent ()
           )
         );
 
@@ -1303,13 +1168,13 @@ public interface Substrates {
     /// @return An iterator for traversing over the nested extents, starting with `this` extent instance.
 
     @NotNull
-    default Iterator < T > iterator () {
+    default Iterator < P > iterator () {
 
-      //noinspection ReturnOfInnerClass
+      //noinspection ReturnOfInnerClass,unchecked
       return new Iterator <> () {
 
-        private T extent
-          = extent ();
+        private P extent
+          = (P) extent ();
 
         @Override
         public boolean hasNext () {
@@ -1319,7 +1184,7 @@ public interface Substrates {
         }
 
         @Override
-        public T next () {
+        public P next () {
 
           final var result = extent;
 
@@ -1356,9 +1221,7 @@ public interface Substrates {
     default CharSequence path () {
 
       return
-        path (
-          '/'
-        );
+        path ( '/' );
 
     }
 
@@ -1372,10 +1235,11 @@ public interface Substrates {
       final char separator
     ) {
 
-      return path (
-        Extent::part,
-        separator
-      );
+      return
+        path (
+          Extent::part,
+          separator
+        );
 
     }
 
@@ -1392,10 +1256,11 @@ public interface Substrates {
 
       requireNonNull ( separator );
 
-      return path (
-        Extent::part,
-        separator
-      );
+      return
+        path (
+          Extent::part,
+          separator
+        );
 
     }
 
@@ -1407,7 +1272,7 @@ public interface Substrates {
 
     @NotNull
     default CharSequence path (
-      @NotNull final Function < ? super T, ? extends CharSequence > mapper,
+      @NotNull final Function < ? super P, ? extends CharSequence > mapper,
       final char separator
     ) {
 
@@ -1440,7 +1305,7 @@ public interface Substrates {
 
     @NotNull
     default CharSequence path (
-      @NotNull final Function < ? super T, ? extends CharSequence > mapper,
+      @NotNull final Function < ? super P, ? extends CharSequence > mapper,
       @NotNull final String separator
     ) {
 
@@ -1475,7 +1340,7 @@ public interface Substrates {
     /// @see #extremity()
 
     @NotNull
-    default Stream < T > stream () {
+    default Stream < P > stream () {
 
       return StreamSupport.stream (
         Spliterators.spliterator (
@@ -1493,33 +1358,27 @@ public interface Substrates {
     }
 
 
-    /// Returns true if this `Extent` is directly or indirectly enclosed within the extent parameter.
+    /// Returns true if this `Extent` is directly or indirectly enclosed within the supplied extent.
     ///
-    /// @param enclosure the extent to be checked whether it enclosed this extent
-    /// @return `true` if the extent parameter encloses this extent, directly or indirectly
+    /// @param enclosure the extent to check against, regardless of its generic specialization
+    /// @return `true` if the supplied extent encloses this extent, directly or indirectly
     /// @throws NullPointerException if `enclosure` param is `null`
 
     default boolean within (
-      @NotNull final Extent < T > enclosure
+      @NotNull final Extent < ?, ? > enclosure
     ) {
 
       requireNonNull ( enclosure );
 
-      var current
-        = extent ();
-
-      do {
-
-        current
-          = current
-          .enclosure ()
-          .orElse ( null );
-
-        if ( current == enclosure ) {
+      for (
+        var current = enclosure ();
+        current.isPresent ();
+        current = current.get ().enclosure ()
+      ) {
+        if ( current.get () == enclosure ) {
           return true;
         }
-
-      } while ( current != null );
+      }
 
       return false;
 
@@ -1794,7 +1653,7 @@ public interface Substrates {
   @Identity
   @Provided
   interface Name
-    extends Extent < Name > {
+    extends Extent < Name, Name > {
 
     /// The separator used for parsing a string into name tokens.
     char SEPARATOR = '.';
@@ -2019,6 +1878,18 @@ public interface Substrates {
 
   /// An abstraction that serves to pass typed values along a pipeline.
   ///
+  /// ## Threading Model
+  ///
+  /// Pipe emissions within a circuit are queued and processed sequentially on
+  /// the circuit's processing thread, ensuring deterministic ordering. This means:
+  ///
+  /// - Emissions from the same pipe are processed in the order they were emitted
+  /// - Emissions run exclusively on the circuit thread; state accessed only there
+  ///   does not require additional synchronization
+  /// - The circuit guarantees that emissions do not execute concurrently
+  /// - Coordination with threads outside the circuit still requires explicit
+  ///   synchronization or lifecycle barriers
+  ///
   /// @param <E> the class type of the emitted values
   /// @see Channel
   /// @see Flow
@@ -2044,6 +1915,9 @@ public interface Substrates {
 
 
     /// A method for passing a data value along a pipeline.
+    ///
+    /// Emissions are queued by the circuit and processed sequentially on the
+    /// circuit's processing thread, ensuring no concurrent execution occurs.
     ///
     /// @param emission the value to be emitted
 
@@ -2073,7 +1947,7 @@ public interface Substrates {
 
     @NotNull
     default T get (
-      @NotNull final Substrate substrate
+      @NotNull final Substrate < ? > substrate
     ) {
 
       requireNonNull ( substrate );
@@ -2091,7 +1965,7 @@ public interface Substrates {
 
     @NotNull
     default T get (
-      @NotNull final Subject subject
+      @NotNull final Subject < ? > subject
     ) {
 
       requireNonNull ( subject );
@@ -2171,12 +2045,9 @@ public interface Substrates {
   /// @see Cortex#scope()
   /// @see AutoCloseable
 
-  @Utility
-  @Provided
-  @Temporal
   interface Scope
-    extends Substrate,
-            Extent < Scope >,
+    extends Substrate < Scope >,
+            Extent < Scope, Scope >,
             AutoCloseable {
 
     /// Operations on a scope are only valid while it remains open.
@@ -2217,17 +2088,6 @@ public interface Substrates {
     );
 
 
-    /// Creates a new named child scope within this scope.
-    ///
-    /// @param name the name for the new child scope
-    /// @return A new scope that is a child of this scope
-    /// @throws NullPointerException  if the name is `null`
-    /// @throws IllegalStateException if this scope has been closed
-
-    @NotNull
-    Scope scope ( @NotNull Name name );
-
-
     /// Creates a new anonymous child scope within this scope.
     ///
     /// @return A new scope that is a child of this scope
@@ -2237,12 +2097,15 @@ public interface Substrates {
     Scope scope ();
 
 
-    /// Returns the subject associated with this scope.
+    /// Creates a new named child scope within this scope.
     ///
-    /// @return The subject that identifies this scope
+    /// @param name the name for the new child scope
+    /// @return A new scope that is a child of this scope
+    /// @throws NullPointerException  if the name is `null`
+    /// @throws IllegalStateException if this scope has been closed
 
     @NotNull
-    Subject subject ();
+    Scope scope ( @NotNull Name name );
 
   }
 
@@ -2339,26 +2202,33 @@ public interface Substrates {
 
   }
 
-  /// An in-memory buffer of captures.
+  /// An in-memory buffer of captures that is also a Substrate.
+  ///
+  /// A Sink is created from a Context and is given its own identity (Subject)
+  /// that is a child of the Context it was created from. It subscribes to its
+  /// source to capture all emissions into an internal buffer.
   ///
   /// @param <E> the class type of the emitted value
   /// @see Capture
-  /// @see Cortex#sink(Source)
+  /// @see Cortex#sink(Context)
   /// @see Resource
 
   @Provided
   non-sealed interface Sink < E >
-    extends Substrate,
+    extends Substrate < Sink < E > >,
             Resource {
 
     /// Returns a stream representing the events that have accumulated since the
     /// sink was created or the last call to this method.
     ///
+    /// Captures use wildcard subject types since a sink may capture emissions
+    /// from various substrate types.
+    ///
     /// @return A stream consisting of stored events.
     /// @see Capture
 
     @NotNull
-    Stream < Capture < E > > drain ();
+    Stream < Capture < E, Channel < E > > > drain ();
 
   }
 
@@ -2411,15 +2281,18 @@ public interface Substrates {
 
   /// An interface for subscribing to source events.
   ///
+  /// This interface represents the subscription capability of components,
+  /// allowing subscribers to receive notifications of new channels and emissions.
+  /// Source is implemented by components through the Context interface.
+  ///
   /// @param <E> the class type of emitted value
   /// @see Subscriber
   /// @see Subscription
   /// @see Context
   /// @see Component
 
-  @Provided
-  interface Source < E >
-    extends Substrate {
+  @Abstract
+  interface Source < E > {
 
     /// Subscribes a [Subscriber] to receive subject registrations from this source
     ///
@@ -2581,6 +2454,36 @@ public interface Substrates {
     );
 
 
+    /// Returns a state that includes the [Slot][Slot] specified.
+    /// The slot is inserted before existing entries; if an equal slot (same name and value)
+    /// already exists this state instance is returned.
+    ///
+    /// @param slot the slot to be added
+    /// @return A state containing the specified slot
+    /// @throws NullPointerException if slot is `null`
+
+    @NotNull
+    State state (
+      @NotNull Slot < ? > slot
+    );
+
+
+    /// Returns a state that includes a [Slot][Slot] with a [Name] value derived from an enum.
+    /// The slot's name is derived from the enum's declaring class,
+    /// and the slot's value is a [Name] created from the enum constant's name.
+    /// The slot is inserted before existing entries; if an equal slot (same name and value)
+    /// already exists this state instance is returned.
+    ///
+    /// @param value the enum to create a slot from
+    /// @return A state containing the specified slot
+    /// @throws NullPointerException if value is `null`
+
+    @NotNull
+    State state (
+      @NotNull Enum < ? > value
+    );
+
+
     /// Returns a sequential [Stream][Stream] of all [Slots][Slot] in this state,
     /// iterating from the most recently added slot to the oldest.
     ///
@@ -2618,7 +2521,9 @@ public interface Substrates {
   }
 
   /// A [Subject][Subject] represents a referent that maintains an identity as well as [State][State].
+  /// Subject is parameterized by its owning substrate type, enabling type-safe subject extraction.
   ///
+  /// @param <S> the substrate type this subject represents
   /// @see Id
   /// @see Name
   /// @see State
@@ -2626,8 +2531,8 @@ public interface Substrates {
 
   @Identity
   @Provided
-  interface Subject
-    extends Extent < Subject > {
+  interface Subject < S extends Substrate < S > >
+    extends Extent < Subject < S >, Subject < ? > > {
 
     /// Returns a unique identifier for this subject.
     ///
@@ -2658,7 +2563,7 @@ public interface Substrates {
       return "Subject[name=%s,type=%s,id=%s]"
         .formatted (
           name (),
-          type (),
+          type ().getSimpleName (),
           id ()
         );
 
@@ -2676,34 +2581,36 @@ public interface Substrates {
     /// Returns the string representation returned from [#path()].
     ///
     /// @return A non-`null` string representation.
-    /// @see #path()
 
     @Override
     @NotNull
     String toString ();
 
 
+    /// Returns the class of the substrate this subject represents.
+    /// This enables type-safe pattern matching and discrimination.
+    ///
+    /// @return The substrate class type
+    /// @see Substrate
+
     @NotNull
-    Type type ();
-
-
-    enum Type {
-      CELL,
-      CHANNEL,
-      CIRCUIT,
-      CLOCK,
-      CONDUIT,
-      SOURCE,
-      SCOPE,
-      SINK,
-      SUBSCRIBER,
-      SUBSCRIPTION
-    }
+    Class < S > type ();
 
   }
 
 
   /// Connects outlet pipes with emitting subjects within a source.
+  ///
+  /// ## Threading Model
+  ///
+  /// Subscriber callbacks are always executed on the circuit's processing thread,
+  /// ensuring sequential processing and deterministic ordering. This means:
+  ///
+  /// - State touched only from the circuit thread does not require additional
+  ///   synchronization
+  /// - All subscriber invocations for a given circuit happen sequentially
+  /// - The callback cannot be interrupted or executed concurrently by multiple threads
+  /// - Coordination with other threads must still be handled explicitly by callers
   ///
   /// @param <E> the class type of the emitted value
   /// @see Source
@@ -2714,14 +2621,22 @@ public interface Substrates {
 
   @Provided
   interface Subscriber < E >
-    extends Substrate {
+    extends Substrate < Subscriber < E > > {
 
-    /// @param subject   the [Subject] of the [Channel]
+    /// Invoked when a new subject becomes available from the subscribed source.
+    ///
+    /// This method is always called on the circuit's processing thread, ensuring
+    /// sequential execution and eliminating the need for synchronization.
+    ///
+    /// The subject parameter uses a wildcard to allow subscribers to dynamically
+    /// handle any substrate type. Use {@code subject.type()} for pattern matching.
+    ///
+    /// @param subject   the [Subject] of the [Channel] (wildcard allows any substrate type)
     /// @param registrar a registrar used for registering a pipe to capture sourced events
     /// @throws NullPointerException if subject or registrar are `null`
 
     void accept (
-      @NotNull Subject subject,
+      @NotNull Subject < Channel < E > > subject,
       @Temporal @NotNull Registrar < E > registrar
     );
 
@@ -2736,25 +2651,29 @@ public interface Substrates {
 
   @Provided
   non-sealed interface Subscription
-    extends Substrate,
+    extends Substrate < Subscription >,
             Resource {
 
   }
 
   /// Base interface for all substrate components that have an associated subject.
+  /// Substrate is self-referential and parameterized by its own type, enabling
+  /// typed subject extraction where {@code substrate.subject()} returns {@code Subject<ThisSubstrateType>}.
   ///
+  /// @param <S> the self-referential substrate type
   /// @see Subject
   @Abstract
   @Extension
-  interface Substrate {
+  interface Substrate < S extends Substrate < S > > {
 
-    /// Returns the subject identifying this substrate
+    /// Returns the typed subject identifying this substrate.
+    /// The subject is parameterized by this substrate's type for type-safe access.
     ///
-    /// @return The subject associated with this substrate.
+    /// @return The typed subject associated with this substrate
     /// @see Subject
 
     @NotNull
-    Subject subject ();
+    Subject < S > subject ();
 
   }
 

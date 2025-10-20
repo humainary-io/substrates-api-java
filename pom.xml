@@ -12,7 +12,7 @@
 
   <properties>
 
-    <revision>1.0.0-M15</revision>
+    <revision>1.0.0-M16</revision>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
@@ -45,10 +45,10 @@
 
     <jmh.version>1.37</jmh.version>
 
-    <spotbugs-maven-plugin.version>4.9.7.0</spotbugs-maven-plugin.version>
-    <spotbugs.version>4.9.7</spotbugs.version>
+    <spotbugs-maven-plugin.version>4.9.8.0</spotbugs-maven-plugin.version>
+    <spotbugs.version>4.9.8</spotbugs.version>
 
-    <native-maven-plugin.version>0.11.1</native-maven-plugin.version>
+    <native-maven-plugin.version>0.11.2</native-maven-plugin.version>
 
     <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
   </properties>
