@@ -63,7 +63,9 @@ public interface Substrates {
 
   /// Indicates a type that serves a role in the assembly of a pipeline.
   @Abstract
-  interface Assembly {
+  sealed interface Assembly
+    permits Flow,
+            Sift {
   }
 
 
@@ -989,6 +991,8 @@ public interface Substrates {
   /// @param <S> the concrete extent type (usually `this`) returned from [#extent()]
   /// @param <P> the enclosing extent type iterated during traversal and comparison
 
+  @Abstract
+  @Extension
   interface Extent < S extends Extent < S, P >, P extends Extent < ?, P > >
     extends Iterable < P >,
             Comparable < P > {
@@ -1393,7 +1397,7 @@ public interface Substrates {
   /// @see Sift
 
   @Provided
-  interface Flow < E >
+  non-sealed interface Flow < E >
     extends Assembly,
             Tap < Flow < E > > {
 
@@ -1937,6 +1941,7 @@ public interface Substrates {
   /// @see Subject
 
   @Abstract
+  @Extension
   interface Pool < T > {
 
     /// Returns an instance of the pooled type for a given substrate.
@@ -2045,7 +2050,8 @@ public interface Substrates {
   /// @see Cortex#scope()
   /// @see AutoCloseable
 
-  interface Scope
+  @Provided
+  non-sealed interface Scope
     extends Substrate < Scope >,
             Extent < Scope, Scope >,
             AutoCloseable {
@@ -2120,7 +2126,7 @@ public interface Substrates {
 
   @Temporal
   @Provided
-  interface Sift < E >
+  non-sealed interface Sift < E >
     extends Assembly {
 
     /// Creates a sift that only passes values above the specified lower bound.
@@ -2292,7 +2298,8 @@ public interface Substrates {
   /// @see Component
 
   @Abstract
-  interface Source < E > {
+  sealed interface Source < E >
+    permits Context {
 
     /// Subscribes a [Subscriber] to receive subject registrations from this source
     ///
@@ -2315,6 +2322,7 @@ public interface Substrates {
   /// @see Slot
   /// @see Subject#state()
   /// @see Cortex#state()
+
   @Provided
   interface State
     extends Iterable < Slot < ? > > {
@@ -2620,7 +2628,7 @@ public interface Substrates {
   /// @see Cortex#subscriber(Name, BiConsumer)
 
   @Provided
-  interface Subscriber < E >
+  non-sealed interface Subscriber < E >
     extends Substrate < Subscriber < E > > {
 
     /// Invoked when a new subject becomes available from the subscribed source.
@@ -2664,7 +2672,13 @@ public interface Substrates {
   /// @see Subject
   @Abstract
   @Extension
-  interface Substrate < S extends Substrate < S > > {
+  sealed interface Substrate < S extends Substrate < S > >
+    permits Channel,
+            Context,
+            Scope,
+            Sink,
+            Subscriber,
+            Subscription {
 
     /// Returns the typed subject identifying this substrate.
     /// The subject is parameterized by this substrate's type for type-safe access.
@@ -2685,6 +2699,8 @@ public interface Substrates {
   /// @param <T> the self-type of the implementing class
 
   @SuppressWarnings ( "unchecked" )
+  @Utility
+  @Extension
   interface Tap < T extends Tap < T > > {
 
     /// Applies the specified consumer to this instance and returns this instance.
