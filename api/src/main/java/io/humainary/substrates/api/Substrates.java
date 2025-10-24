@@ -52,18 +52,29 @@ import static java.util.Spliterator.*;
 /// @author William David Louth
 /// @since 1.0
 
-public interface Substrates {
+public final class Substrates {
+
+  /// The system property key used to specify the Cortex provider class.
+  /// The specified class must have a static method with signature: {@code public static Cortex cortex()}
+  private static final String PROVIDER_PROPERTY = "io.humainary.substrates.spi.provider";
+
+  /// The singleton Cortex instance, lazily initialized via the provider class.
+  private static volatile Cortex cortex;
+
+  private Substrates () { }
+
 
   /// Indicates a type that serves primarily as an abstraction for other types.
   @Documented
   @Retention ( SOURCE )
   @Target ( TYPE )
-  @interface Abstract {
+  public @interface Abstract {
   }
+
 
   /// Indicates a type that serves a role in the assembly of a pipeline.
   @Abstract
-  sealed interface Assembly
+  public sealed interface Assembly
     permits Flow,
             Sift {
   }
@@ -76,7 +87,7 @@ public interface Substrates {
   /// @see Sink#drain()
 
   @Provided
-  interface Capture < E, S extends Substrate < S > > {
+  public interface Capture < E, S extends Substrate < S > > {
 
     /// Returns the emitted value.
     ///
@@ -96,7 +107,6 @@ public interface Substrates {
 
   }
 
-
   /// A combined pipe and container for advanced data flow patterns.
   /// This interface is experimental and may undergo significant changes in future releases.
   ///
@@ -104,16 +114,17 @@ public interface Substrates {
   /// @param <E> the class type of emitted values
   /// @see Pipe
   /// @see Container
-  /// @see Circuit#cell(Composer, Consumer)
+  /// @see Circuit#cell(Composer, Consumer, Pipe)
 
   @Experimental
   @Provided
-  non-sealed interface Cell < I, E >
+  non-sealed public interface Cell < I, E >
     extends Pipe < I >,
             Container < Cell < I, E >, E, Cell < I, E > >,
             Extent < Cell < I, E >, Cell < I, E > > {
 
   }
+
 
   /// A (subject) named pipe managed by a conduit.
   ///
@@ -123,7 +134,7 @@ public interface Substrates {
   /// @see Circuit#conduit(Composer)
 
   @Provided
-  non-sealed interface Channel < E >
+  non-sealed public interface Channel < E >
     extends Substrate < Channel < E > >,
             Inlet < E > {
 
@@ -143,6 +154,7 @@ public interface Substrates {
 
   }
 
+
   /// A computational network of conduits, containers, clocks, channels, and pipes.
   /// Circuit serves as the central processing engine that manages data flow across
   /// the system, providing precise ordering guarantees for emitted events and
@@ -157,7 +169,7 @@ public interface Substrates {
   /// @see Container
 
   @Provided
-  non-sealed interface Circuit
+  non-sealed public interface Circuit
     extends Component < State, Circuit >,
             Resource,
             Tap < Circuit > {
@@ -168,6 +180,9 @@ public interface Substrates {
     /// in the circuit have been processed. It cannot be called from within the
     /// circuit's own thread.
     ///
+    /// After the circuit has been closed, this method returns immediately without
+    /// blocking, providing a fast-path for shutdown scenarios.
+    ///
     /// @throws IllegalStateException if called from within the circuit's thread
 
     void await ();
@@ -177,14 +192,16 @@ public interface Substrates {
     @NotNull
     < I, E > Cell < I, E > cell (
       @NotNull Composer < Pipe < I >, E > composer,
-      @NotNull Consumer < Flow < E > > configurer
+      @NotNull Consumer < Flow < E > > configurer,
+      @NotNull Pipe < E > pipe
     );
 
 
     @Experimental
     @NotNull
     < I, E > Cell < I, E > cell (
-      @NotNull Composer < Pipe < I >, E > composer
+      @NotNull Composer < Pipe < I >, E > composer,
+      @NotNull Pipe < E > pipe
     );
 
 
@@ -262,7 +279,6 @@ public interface Substrates {
 
   }
 
-
   /// A component that emits clock ticks.
   ///
   /// @see Circuit#clock()
@@ -270,16 +286,17 @@ public interface Substrates {
   /// @see Clock.Cycle
 
   @Provided
-  non-sealed interface Clock
+  non-sealed public interface Clock
     extends Component < Instant, Clock >,
             Resource {
 
     /// A utility method that subscribes a pipe to events of a particular cycle
     ///
+    /// @param name  the name to be used for the subscription
     /// @param cycle the cycle value to be subscribed to
     /// @param pipe  the pipe that will consume ticks events
     /// @return A subscription that can be used to cancel further delivery of tick events
-    /// @throws NullPointerException if the specified cycle or pipe are `null`
+    /// @throws NullPointerException if the specified name, cycle, or pipe are `null`
     /// @see Clock.Cycle
     /// @see Pipe
     /// @see Subscription
@@ -342,7 +359,7 @@ public interface Substrates {
 
   @Utility
   @Temporal
-  interface Closure < R extends Resource > {
+  public interface Closure < R extends Resource > {
 
     /// Calls a consumer, with an acquired resource, within an automatic resource management (ARM) scope.
     ///
@@ -354,6 +371,7 @@ public interface Substrates {
 
   }
 
+
   /// An abstraction that represents a managed event-sourcing component.
   ///
   /// A Component is the base type for all event-sourcing objects in the
@@ -363,7 +381,7 @@ public interface Substrates {
   /// @param <S> the self-referential component type
 
   @Abstract
-  sealed interface Component < E, S extends Component < E, S > >
+  public sealed interface Component < E, S extends Component < E, S > >
     extends Context < E, S >
     permits Circuit,
             Clock,
@@ -381,7 +399,7 @@ public interface Substrates {
 
   @Abstract
   @Extension
-  interface Composer < P, E > {
+  public interface Composer < P, E > {
 
 
     /// Returns the identity composer.
@@ -513,12 +531,11 @@ public interface Substrates {
   /// @see Circuit#conduit(Composer)
 
   @Provided
-  non-sealed interface Conduit < P, E >
+  non-sealed public interface Conduit < P, E >
     extends Container < P, E, Conduit < P, E > >,
             Tap < Conduit < P, E > > {
 
   }
-
 
   /// Creates and manages an instance pool and notifies of events associated with such instances
   ///
@@ -529,7 +546,7 @@ public interface Substrates {
   /// @see Component
 
   @Abstract
-  sealed interface Container < P, E, S extends Container < P, E, S > >
+  public sealed interface Container < P, E, S extends Container < P, E, S > >
     extends Pool < P >,
             Component < E, S >
     permits Conduit,
@@ -549,12 +566,13 @@ public interface Substrates {
   /// @see Component
 
   @Abstract
-  sealed interface Context < E, S extends Context < E, S > >
+  sealed public interface Context < E, S extends Context < E, S > >
     extends Source < E >,
             Substrate < S >
     permits Component {
 
   }
+
 
   /// The main entry point into the underlying substrates runtime.
   ///
@@ -573,7 +591,7 @@ public interface Substrates {
   /// @see Subscriber
 
   @Provided
-  interface Cortex {
+  public interface Cortex {
 
     /// Returns a newly created circuit instance with a generated name.
     ///
@@ -974,16 +992,15 @@ public interface Substrates {
   @Documented
   @Retention ( SOURCE )
   @Target ( {TYPE, METHOD, CONSTRUCTOR, FIELD} )
-  @interface Experimental {
+  public @interface Experimental {
   }
-
 
   /// Indicates a type used by callers or instrumentation kits to extend capabilities.
 
   @Documented
   @Retention ( SOURCE )
   @Target ( TYPE )
-  @interface Extension {
+  public @interface Extension {
   }
 
   /// An abstraction of a hierarchically nested structure of enclosed whole-parts.
@@ -993,7 +1010,7 @@ public interface Substrates {
 
   @Abstract
   @Extension
-  interface Extent < S extends Extent < S, P >, P extends Extent < ?, P > >
+  public interface Extent < S extends Extent < S, P >, P extends Extent < ?, P > >
     extends Iterable < P >,
             Comparable < P > {
 
@@ -1131,7 +1148,7 @@ public interface Substrates {
     }
 
 
-    /// Produces an accumulated value moving from the left (root) to the right (this) in the namespace.
+    /// Produces an accumulated value moving from the left (root) to the right (this) in the extent.
     ///
     /// @param <R>         the return type of the accumulated value
     /// @param initializer the function called to seed the accumulator
@@ -1390,6 +1407,7 @@ public interface Substrates {
 
   }
 
+
   /// Represents a configurable processing pipeline for data transformation.
   ///
   /// @see Assembly
@@ -1397,11 +1415,12 @@ public interface Substrates {
   /// @see Sift
 
   @Provided
-  non-sealed interface Flow < E >
+  non-sealed public interface Flow < E >
     extends Assembly,
             Tap < Flow < E > > {
 
-    /// Returns a flow that extends the current pipe with a differencing pipeline operation
+    /// Returns a flow that extends the current pipeline with a differencing operation.
+    /// The initial value is implicitly `null`.
 
     @NotNull
     @Fluent
@@ -1553,6 +1572,19 @@ public interface Substrates {
       @NotNull Consumer < ? super Sift < E > > configurer
     );
 
+
+    /// Returns a flow that skips the first n emissions in the pipeline.
+    ///
+    /// @param n the number of emissions to skip
+    /// @return A flow that skips the first n emissions
+    /// @throws IllegalArgumentException if n is negative
+
+    @NotNull
+    @Fluent
+    Flow < E > skip (
+      long n
+    );
+
   }
 
   /// Indicates a method that returns `this` instance for method chaining.
@@ -1560,7 +1592,7 @@ public interface Substrates {
   @Documented
   @Retention ( SOURCE )
   @Target ( METHOD )
-  @interface Fluent {
+  public @interface Fluent {
   }
 
   /// An activity that returns a result.
@@ -1571,7 +1603,7 @@ public interface Substrates {
   @Utility
   @Extension
   @FunctionalInterface
-  interface Fn < R, T extends Throwable > {
+  public interface Fn < R, T extends Throwable > {
 
     /// Use this function to force typing of an overloaded method handle at compile-time.
     ///
@@ -1608,15 +1640,14 @@ public interface Substrates {
 
   @Provided
   @Identity
-  interface Id {
+  public interface Id {
   }
-
 
   /// Indicates a method expected to be idempotent.
   @Documented
   @Retention ( SOURCE )
   @Target ( METHOD )
-  @interface Idempotent {
+  public @interface Idempotent {
   }
 
   /// Indicates a type whose instances can be compared by (object) reference for equality.
@@ -1624,8 +1655,9 @@ public interface Substrates {
   @Documented
   @Retention ( SOURCE )
   @Target ( TYPE )
-  @interface Identity {
+  public @interface Identity {
   }
+
 
   /// An interface that provides access to a pipe for emitting values
   ///
@@ -1633,7 +1665,7 @@ public interface Substrates {
   /// @see Pipe
 
   @Abstract
-  sealed interface Inlet < E >
+  sealed public interface Inlet < E >
     permits Channel {
 
     /// Returns a pipe that this inlet holds.
@@ -1656,7 +1688,7 @@ public interface Substrates {
 
   @Identity
   @Provided
-  interface Name
+  public interface Name
     extends Extent < Name, Name > {
 
     /// The separator used for parsing a string into name tokens.
@@ -1822,7 +1854,7 @@ public interface Substrates {
   @Documented
   @Retention ( SOURCE )
   @Target ( {PARAMETER, METHOD, FIELD} )
-  @interface NotNull {
+  public @interface NotNull {
   }
 
   /// An activity without a return value.
@@ -1832,7 +1864,7 @@ public interface Substrates {
   @Utility
   @Extension
   @FunctionalInterface
-  interface Op < T extends Throwable > {
+  public interface Op < T extends Throwable > {
 
     /// Use this function to force typing of an overloaded method handle at compile-time.
     ///
@@ -1902,7 +1934,12 @@ public interface Substrates {
 
   @Abstract
   @Extension
-  interface Pipe < E > {
+  public interface Pipe < E > {
+
+    /// A singleton empty pipe instance that ignores all emissions.
+    Pipe < ? > EMPTY = _ -> {
+    };
+
 
     /// Returns an empty pipe that ignores all emissions.
     ///
@@ -1910,10 +1947,10 @@ public interface Substrates {
     /// @return A pipe that does nothing when emissions are received
 
     @NotNull
+    @SuppressWarnings ( "unchecked" )
     static < E > Pipe < E > empty () {
 
-      return _ -> {
-      };
+      return (Pipe < E >) EMPTY;
 
     }
 
@@ -1942,7 +1979,7 @@ public interface Substrates {
 
   @Abstract
   @Extension
-  interface Pool < T > {
+  public interface Pool < T > {
 
     /// Returns an instance of the pooled type for a given substrate.
     ///
@@ -1998,7 +2035,7 @@ public interface Substrates {
   @Documented
   @Retention ( SOURCE )
   @Target ( TYPE )
-  @interface Provided {
+  public @interface Provided {
   }
 
   /// Links a [Subject] to a [Pipe]
@@ -2009,7 +2046,7 @@ public interface Substrates {
 
   @Temporal
   @Provided
-  interface Registrar < E > {
+  public interface Registrar < E > {
 
     /// Registers a [Pipe] with a `Registrar` associated with a [Source].
     ///
@@ -2028,7 +2065,7 @@ public interface Substrates {
   /// @see Scope
 
   @Abstract
-  sealed interface Resource
+  sealed public interface Resource
     permits Circuit,
             Clock,
             Sink,
@@ -2051,7 +2088,7 @@ public interface Substrates {
   /// @see AutoCloseable
 
   @Provided
-  non-sealed interface Scope
+  non-sealed public interface Scope
     extends Substrate < Scope >,
             Extent < Scope, Scope >,
             AutoCloseable {
@@ -2126,7 +2163,7 @@ public interface Substrates {
 
   @Temporal
   @Provided
-  non-sealed interface Sift < E >
+  non-sealed public interface Sift < E >
     extends Assembly {
 
     /// Creates a sift that only passes values above the specified lower bound.
@@ -2220,17 +2257,14 @@ public interface Substrates {
   /// @see Resource
 
   @Provided
-  non-sealed interface Sink < E >
+  non-sealed public interface Sink < E >
     extends Substrate < Sink < E > >,
             Resource {
 
     /// Returns a stream representing the events that have accumulated since the
     /// sink was created or the last call to this method.
     ///
-    /// Captures use wildcard subject types since a sink may capture emissions
-    /// from various substrate types.
-    ///
-    /// @return A stream consisting of stored events.
+    /// @return A stream consisting of stored events captured from channels.
     /// @see Capture
 
     @NotNull
@@ -2258,7 +2292,7 @@ public interface Substrates {
 
   @Utility
   @Provided
-  interface Slot < T > {
+  public interface Slot < T > {
 
     /// Returns the name of this slot.
     ///
@@ -2298,7 +2332,7 @@ public interface Substrates {
   /// @see Component
 
   @Abstract
-  sealed interface Source < E >
+  sealed public interface Source < E >
     permits Context {
 
     /// Subscribes a [Subscriber] to receive subject registrations from this source
@@ -2324,7 +2358,7 @@ public interface Substrates {
   /// @see Cortex#state()
 
   @Provided
-  interface State
+  public interface State
     extends Iterable < Slot < ? > > {
 
     /// Returns a new [State][State] with duplicates removed.
@@ -2539,7 +2573,7 @@ public interface Substrates {
 
   @Identity
   @Provided
-  interface Subject < S extends Substrate < S > >
+  public interface Subject < S extends Substrate < S > >
     extends Extent < Subject < S >, Subject < ? > > {
 
     /// Returns a unique identifier for this subject.
@@ -2606,7 +2640,6 @@ public interface Substrates {
 
   }
 
-
   /// Connects outlet pipes with emitting subjects within a source.
   ///
   /// ## Threading Model
@@ -2628,7 +2661,7 @@ public interface Substrates {
   /// @see Cortex#subscriber(Name, BiConsumer)
 
   @Provided
-  non-sealed interface Subscriber < E >
+  non-sealed public interface Subscriber < E >
     extends Substrate < Subscriber < E > > {
 
     /// Invoked when a new subject becomes available from the subscribed source.
@@ -2650,7 +2683,6 @@ public interface Substrates {
 
   }
 
-
   /// An interface used for unregistering interest in receiving subscribed events.
   ///
   /// @see Source#subscribe(Subscriber)
@@ -2658,11 +2690,12 @@ public interface Substrates {
   /// @see Clock#consume(Name, Clock.Cycle, Pipe)
 
   @Provided
-  non-sealed interface Subscription
+  non-sealed public interface Subscription
     extends Substrate < Subscription >,
             Resource {
 
   }
+
 
   /// Base interface for all substrate components that have an associated subject.
   /// Substrate is self-referential and parameterized by its own type, enabling
@@ -2672,7 +2705,7 @@ public interface Substrates {
   /// @see Subject
   @Abstract
   @Extension
-  sealed interface Substrate < S extends Substrate < S > >
+  sealed public interface Substrate < S extends Substrate < S > >
     permits Channel,
             Context,
             Scope,
@@ -2691,6 +2724,7 @@ public interface Substrates {
 
   }
 
+
   /// A self-typed interface that provides a fluent tap operation.
   ///
   /// This interface enables method chaining by providing a tap method that
@@ -2701,7 +2735,7 @@ public interface Substrates {
   @SuppressWarnings ( "unchecked" )
   @Utility
   @Extension
-  interface Tap < T extends Tap < T > > {
+  public interface Tap < T extends Tap < T > > {
 
     /// Applies the specified consumer to this instance and returns this instance.
     ///
@@ -2729,16 +2763,111 @@ public interface Substrates {
   @Documented
   @Retention ( SOURCE )
   @Target ( {PARAMETER, TYPE} )
-  @interface Temporal {
+  public @interface Temporal {
   }
-
 
   /// Indicates a type that serves a utility purpose.
 
   @Documented
   @Retention ( SOURCE )
   @Target ( TYPE )
-  @interface Utility {
+  public @interface Utility {
+  }
+
+  /// Returns the singleton Cortex instance.
+  ///
+  /// The Cortex implementation is determined by the system property {@value #PROVIDER_PROPERTY}.
+  /// The specified class must have a public static method: {@code public static Cortex cortex()}
+  /// which will be invoked reflectively to obtain the singleton instance.
+  ///
+  /// For the default alpha SPI implementation, set the system property to:
+  /// {@code io.humainary.substrates.spi.alpha.Provider}
+  ///
+  /// @return The singleton Cortex instance
+  /// @throws IllegalStateException if the provider class cannot be loaded, the method cannot be found,
+  ///                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               or the method invocation fails
+  /// @see Cortex
+
+  @NotNull
+  public static Cortex cortex () {
+
+    if ( cortex == null ) {
+
+      synchronized ( Substrates.class ) {
+
+        if ( cortex == null ) {
+
+          cortex = install ();
+
+        }
+
+      }
+
+    }
+
+    return cortex;
+
+  }
+
+  /// Loads the Cortex instance from the provider class specified by system property.
+  ///
+  /// @return A Cortex instance from the provider
+  /// @throws IllegalStateException if loading fails
+
+  @NotNull
+  private static Cortex install () {
+
+    final var provider =
+      System.getProperty (
+        PROVIDER_PROPERTY
+      );
+
+    if ( provider == null ) {
+
+      throw new IllegalStateException (
+        "System property '%s' not set. Please specify a Cortex provider class."
+          .formatted ( PROVIDER_PROPERTY )
+      );
+
+    }
+
+    try {
+
+      final var instance =
+        Class.forName (
+          provider
+        ).getMethod (
+          "cortex"
+        ).invoke (
+          null
+        );
+
+      if ( instance instanceof Cortex ctx ) {
+
+        return ctx;
+
+      }
+
+      throw new IllegalStateException (
+        "Provider method '%s.cortex()' did not return a Cortex instance"
+          .formatted ( provider )
+      );
+
+    } catch (
+      final ReflectiveOperationException e
+    ) {
+
+      throw new IllegalStateException (
+        "Failed to load substrates spi provider class '%s': %s"
+          .formatted (
+            provider,
+            e.getMessage ()
+          ),
+        e
+      );
+
+    }
+
   }
 
 }
