@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!--
+  ~ Copyright (c) 2025 William David Louth
+  -->
+
+<FindBugsFilter>
+
+  <Match>
+    <Or>
+      <!-- Ignore checking for generated JMH benchmarking classes -->
+      <Package name="~.*\.jmh_generated"/>
+    </Or>
+  </Match>
+  <Match>
+    <Bug pattern="NM_SAME_SIMPLE_NAME_AS_INTERFACE"/>
+  </Match>
+  <Match>
+    <Bug pattern="EQ_COMPARETO_USE_OBJECT_EQUALS"/>
+  </Match>
+
+</FindBugsFilter>
