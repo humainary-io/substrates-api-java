@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) 2025 William David Louth
+  -->
+
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.humainary.substrates</groupId>
+  <artifactId>humainary-substrates-parent</artifactId>
+  <packaging>pom</packaging>
+  <version>${revision}</version>
+
+  <properties>
+
+    <!-- PLEASE SET THE SPI LIBRARY DEPENDENCY INFORMATION HERE -->
+    <substrates.spi.groupId>io.humainary.substrates.spi</substrates.spi.groupId>
+    <substrates.spi.artifactId>humainary-substrates-spi-alpha</substrates.spi.artifactId>
+    <substrates.spi.version>${revision}</substrates.spi.version>
+
+    <revision>1.0.0-PREVIEW</revision>
+
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <java.version>25</java.version>
+    <java.source.version>${java.version}</java.source.version>
+    <java.target.version>${java.version}</java.target.version>
+    <java.release.version>${java.version}</java.release.version>
+
+    <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
+    <maven-failsafe-plugin.version>3.5.4</maven-failsafe-plugin.version>
+    <maven-enforcer-plugin.version>3.6.2</maven-enforcer-plugin.version>
+
+    <maven-project-info-reports-plugin.version>3.9.0</maven-project-info-reports-plugin.version>
+    <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+    <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
+    <maven-site-plugin.version>4.0.0-M16</maven-site-plugin.version>
+    <maven-install-plugin.version>3.1.4</maven-install-plugin.version>
+    <maven-deploy-plugin.version>3.1.4</maven-deploy-plugin.version>
+    <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
+
+    <maven.test.skip>true</maven.test.skip>
+
+    <versions-maven-plugin.version>2.19.1</versions-maven-plugin.version>
+
+    <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
+
+    <junit.version>6.0.1</junit.version>
+    <junit-jupiter.version>${junit.version}</junit-jupiter.version>
+
+    <jmh.version>1.37</jmh.version>
+
+    <spotbugs-maven-plugin.version>4.9.8.1</spotbugs-maven-plugin.version>
+    <spotbugs.version>4.9.8</spotbugs.version>
+
+    <native-maven-plugin.version>0.11.3</native-maven-plugin.version>
+
+    <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
+
+  </properties>
+
+  <modules>
+    <module>api</module>
+    <module>ext</module>
+    <module>tck</module>
+  </modules>
+
+  <build>
+
+    <pluginManagement>
+      <plugins>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>${maven-compiler-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>${maven-surefire-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>${maven-failsafe-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>${maven-clean-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>${maven-deploy-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>${maven-install-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>${maven-site-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>${maven-jar-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>${maven-resources-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-project-info-reports-plugin</artifactId>
+          <version>${maven-project-info-reports-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>versions-maven-plugin</artifactId>
+          <version>${versions-maven-plugin.version}</version>
+          <configuration>
+            <generateBackupPoms>false</generateBackupPoms>
+          </configuration>
+        </plugin>
+
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>flatten-maven-plugin</artifactId>
+          <version>${flatten-maven-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>com.github.spotbugs</groupId>
+          <artifactId>spotbugs-maven-plugin</artifactId>
+          <version>${spotbugs-maven-plugin.version}</version>
+          <dependencies>
+            <dependency>
+              <groupId>com.github.spotbugs</groupId>
+              <artifactId>spotbugs</artifactId>
+              <version>${spotbugs.version}</version>
+            </dependency>
+          </dependencies>
+          <configuration>
+            <excludeFilterFile>spotbugs-exclude-filter.xml</excludeFilterFile>
+          </configuration>
+        </plugin>
+
+        <plugin>
+          <groupId>org.graalvm.buildtools</groupId>
+          <artifactId>native-maven-plugin</artifactId>
+          <version>${native-maven-plugin.version}</version>
+          <extensions>true</extensions>
+          <executions>
+            <execution>
+              <id>build-native</id>
+              <goals>
+                <goal>compile-no-fork</goal>
+              </goals>
+              <phase>package</phase>
+            </execution>
+            <execution>
+              <id>test-native</id>
+              <goals>
+                <goal>test</goal>
+              </goals>
+              <phase>test</phase>
+            </execution>
+          </executions>
+          <configuration>
+            <!-- ... -->
+          </configuration>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-assembly-plugin</artifactId>
+          <version>${maven-assembly-plugin.version}</version>
+          <configuration>
+            <descriptorRefs>
+              <descriptorRef>jar-with-dependencies</descriptorRef>
+            </descriptorRefs>
+          </configuration>
+          <executions>
+            <execution>
+              <id>make-assembly</id>
+              <phase>package</phase>
+              <goals>
+                <goal>single</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>${java.source.version}</source>
+          <target>${java.target.version}</target>
+          <release>${java.release.version}</release>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.openjdk.jmh</groupId>
+              <artifactId>jmh-generator-annprocess</artifactId>
+              <version>${jmh.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <io.humainary.substrates.spi.provider>io.humainary.substrates.spi.alpha.Provider
+            </io.humainary.substrates.spi.provider>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${maven-enforcer-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>enforce-maven</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>3.9.9</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>versions-maven-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-install-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <configuration>
+          <updatePomFile>true</updatePomFile>
+          <flattenMode>resolveCiFriendliesOnly</flattenMode>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flatten</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>flatten.clean</id>
+            <phase>clean</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.12.0</version>
+        <configuration>
+          <excludePackageNames>*.spi.alpha:*.spi.alpha.*</excludePackageNames>
+          <doctitle>Humainary Substrates API Documentation</doctitle>
+          <windowtitle>Humainary Substrates</windowtitle>
+          <bottom>Copyright © 2025 William David Louth. All Rights Reserved.</bottom>
+        </configuration>
+      </plugin>
+
+    </plugins>
+
+  </build>
+
+  <dependencyManagement>
+
+    <dependencies>
+
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-api</artifactId>
+        <version>${junit-jupiter.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-engine</artifactId>
+        <version>${junit-jupiter.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.openjdk.jmh</groupId>
+        <artifactId>jmh-core</artifactId>
+        <version>${jmh.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.openjdk.jmh</groupId>
+        <artifactId>jmh-generator-annprocess</artifactId>
+        <version>${jmh.version}</version>
+      </dependency>
+
+    </dependencies>
+
+  </dependencyManagement>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+    </dependency>
+
+  </dependencies>
+
+  <profiles>
+
+    <profile>
+      <id>jmh</id>
+
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+
+      <modules>
+        <module>jmh</module>
+      </modules>
+
+    </profile>
+
+  </profiles>
+
+</project>
